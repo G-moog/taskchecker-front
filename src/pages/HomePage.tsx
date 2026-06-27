@@ -20,7 +20,7 @@ export default function HomePage() {
   const navigate = useNavigate()
 
   const ownerId = tab === 'personal' ? user?.id : selectedTeamId
-  const { checklists, loading, createChecklist, deleteChecklist } = useChecklists(ownerId, tab)
+  const { checklists, loading, deleteChecklist } = useChecklists(ownerId, tab)
   const selectedTeam = teams.find((t) => t.id === selectedTeamId)
 
   const handleCreateTeam = async () => {

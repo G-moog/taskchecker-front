@@ -4,53 +4,6 @@ export type RepeatType = 'daily' | 'weekly' | 'once'
 export type OwnerType = 'personal' | 'team'
 export type TeamRole = 'admin' | 'member'
 
-export interface Database {
-  public: {
-    Tables: {
-      teams: {
-        Row: Team
-        Insert: Omit<Team, 'id' | 'created_at'>
-        Update: Partial<Omit<Team, 'id'>>
-      }
-      team_members: {
-        Row: TeamMember
-        Insert: Omit<TeamMember, 'id' | 'joined_at'>
-        Update: Partial<Omit<TeamMember, 'id'>>
-      }
-      team_invite_codes: {
-        Row: TeamInviteCode
-        Insert: Omit<TeamInviteCode, 'id' | 'created_at'>
-        Update: Partial<Omit<TeamInviteCode, 'id'>>
-      }
-      checklists: {
-        Row: Checklist
-        Insert: Omit<Checklist, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<Checklist, 'id'>>
-      }
-      checklist_items: {
-        Row: ChecklistItem
-        Insert: Omit<ChecklistItem, 'id' | 'created_at' | 'updated_at'>
-        Update: Partial<Omit<ChecklistItem, 'id'>>
-      }
-      checklist_item_status: {
-        Row: ChecklistItemStatus
-        Insert: Omit<ChecklistItemStatus, 'id'>
-        Update: Partial<Omit<ChecklistItemStatus, 'id'>>
-      }
-      checklist_notify_targets: {
-        Row: ChecklistNotifyTarget
-        Insert: Omit<ChecklistNotifyTarget, 'id' | 'created_at'>
-        Update: Partial<Omit<ChecklistNotifyTarget, 'id'>>
-      }
-      user_push_tokens: {
-        Row: UserPushToken
-        Insert: Omit<UserPushToken, 'id' | 'updated_at'>
-        Update: Partial<Omit<UserPushToken, 'id'>>
-      }
-    }
-  }
-}
-
 export interface Team {
   id: string
   name: string
@@ -122,4 +75,63 @@ export interface UserPushToken {
   user_id: string
   fcm_token: string
   updated_at: string
+}
+
+export type Database = {
+  public: {
+    Tables: {
+      teams: {
+        Row: Team
+        Insert: Omit<Team, 'id' | 'created_at'>
+        Update: Partial<Omit<Team, 'id'>>
+        Relationships: []
+      }
+      team_members: {
+        Row: TeamMember
+        Insert: Omit<TeamMember, 'id' | 'joined_at'>
+        Update: Partial<Omit<TeamMember, 'id'>>
+        Relationships: []
+      }
+      team_invite_codes: {
+        Row: TeamInviteCode
+        Insert: Omit<TeamInviteCode, 'id' | 'created_at'>
+        Update: Partial<Omit<TeamInviteCode, 'id'>>
+        Relationships: []
+      }
+      checklists: {
+        Row: Checklist
+        Insert: Omit<Checklist, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<Checklist, 'id'>>
+        Relationships: []
+      }
+      checklist_items: {
+        Row: ChecklistItem
+        Insert: Omit<ChecklistItem, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<ChecklistItem, 'id'>>
+        Relationships: []
+      }
+      checklist_item_status: {
+        Row: ChecklistItemStatus
+        Insert: Omit<ChecklistItemStatus, 'id'>
+        Update: Partial<Omit<ChecklistItemStatus, 'id'>>
+        Relationships: []
+      }
+      checklist_notify_targets: {
+        Row: ChecklistNotifyTarget
+        Insert: Omit<ChecklistNotifyTarget, 'id' | 'created_at'>
+        Update: Partial<Omit<ChecklistNotifyTarget, 'id'>>
+        Relationships: []
+      }
+      user_push_tokens: {
+        Row: UserPushToken
+        Insert: Omit<UserPushToken, 'id' | 'updated_at'>
+        Update: Partial<Omit<UserPushToken, 'id'>>
+        Relationships: []
+      }
+    }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
+  }
 }
