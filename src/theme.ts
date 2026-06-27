@@ -1,0 +1,16 @@
+export const T = {
+  bg: '#0d0d12',
+  surface: '#16171d',
+  surface2: '#1f2028',
+  border: '#2e303a',
+  text: '#f3f4f6',
+  muted: '#6b7280',
+  accent: '#fb923c',
+  accentDim: 'rgba(251, 146, 60, 0.12)',
+  accentBorder: 'rgba(251, 146, 60, 0.4)',
+  danger: '#f87171',
+  dangerDim: 'rgba(248, 113, 113, 0.12)',
+  dangerBorder: 'rgba(248, 113, 113, 0.4)',
+  success: '#4ade80',
+  warning: '#facc15',
+}
