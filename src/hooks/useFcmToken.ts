@@ -19,7 +19,7 @@ export function useFcmToken(userId: string | undefined) {
 
         await supabase
           .from('user_push_tokens')
-          .upsert({ user_id: userId, fcm_token: token }, { onConflict: 'user_id,fcm_token' })
+          .upsert({ user_id: userId, fcm_token: token }, { onConflict: 'user_id' })
       } catch {
         // 토큰 등록 실패는 조용히 무시
       }
