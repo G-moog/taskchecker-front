@@ -217,10 +217,31 @@ export default function EditPage() {
           <div>
             <label className="block text-xs mb-1" style={{ color: T.muted }}>알림 시간 (선택)</label>
             <div className="flex items-center gap-2">
-              <input type="time" value={notifyTime} onChange={(e) => setNotifyTime(e.target.value)}
-                className="text-sm outline-none bg-transparent flex-1" style={{ color: notifyTime ? T.accent : T.muted, colorScheme: 'dark' }} />
+              <input
+                type="number" min={0} max={23} placeholder="시"
+                value={notifyTime ? notifyTime.split(':')[0] : ''}
+                onChange={(e) => {
+                  const h = Math.max(0, Math.min(23, Number(e.target.value)))
+                  const m = notifyTime ? notifyTime.split(':')[1] : '00'
+                  setNotifyTime(`${String(h).padStart(2, '0')}:${m}`)
+                }}
+                className="w-16 text-center text-sm outline-none rounded-lg py-2"
+                style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
+              />
+              <span style={{ color: T.muted }}>:</span>
+              <input
+                type="number" min={0} max={59} placeholder="분"
+                value={notifyTime ? notifyTime.split(':')[1] : ''}
+                onChange={(e) => {
+                  const m = Math.max(0, Math.min(59, Number(e.target.value)))
+                  const h = notifyTime ? notifyTime.split(':')[0] : '00'
+                  setNotifyTime(`${h}:${String(m).padStart(2, '0')}`)
+                }}
+                className="w-16 text-center text-sm outline-none rounded-lg py-2"
+                style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
+              />
               {notifyTime && (
-                <button onClick={() => setNotifyTime('')} className="text-xs" style={{ color: T.muted }}>지우기</button>
+                <button onClick={() => setNotifyTime('')} className="text-xs ml-1" style={{ color: T.muted }}>지우기</button>
               )}
             </div>
           </div>
