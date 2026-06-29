@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { getToken } from 'firebase/messaging'
+import { getToken, onMessage } from 'firebase/messaging'
 import { messaging } from '../lib/firebase'
 import { supabase } from '../lib/supabase'
 
@@ -26,5 +26,9 @@ export function useFcmToken(userId: string | undefined) {
     }
 
     register()
+
+    // 포그라운드 메시지는 무시 (서비스워커가 백그라운드에서 처리)
+    const unsubscribe = onMessage(messaging!, () => {})
+    return unsubscribe
   }, [userId])
 }
