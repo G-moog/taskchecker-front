@@ -13,9 +13,10 @@ firebase.initializeApp({
 const messaging = firebase.messaging()
 
 messaging.onBackgroundMessage((payload) => {
-  const { title, body } = payload.notification ?? {}
-  self.registration.showNotification(title ?? 'TaskChecker', {
-    body: body ?? '',
+  const title = payload.data?.title ?? 'TaskChecker'
+  const body = payload.data?.body ?? ''
+  self.registration.showNotification(title, {
+    body,
     icon: '/pwa-192x192.png',
   })
 })
