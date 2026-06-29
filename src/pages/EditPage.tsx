@@ -31,6 +31,9 @@ export default function EditPage() {
   const [localItems, setLocalItems] = useState<ChecklistItem[]>([])
   const [newLabel, setNewLabel] = useState('')
   const [saving, setSaving] = useState(false)
+  const [customOpen, setCustomOpen] = useState(false)
+  const [customHours, setCustomHours] = useState(0)
+  const [customMinutes, setCustomMinutes] = useState(30)
 
   const isTeam = isNew ? ownerType === 'team' : checklist?.owner_type === 'team'
 
@@ -210,10 +213,84 @@ export default function EditPage() {
         </div>
 
         {/* 알림 시간 */}
-        <div className="rounded-xl px-4 py-3" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
-          <label className="block text-xs mb-1" style={{ color: T.muted }}>알림 시간 (선택)</label>
-          <input type="time" value={notifyTime} onChange={(e) => setNotifyTime(e.target.value)}
-            className="text-sm outline-none bg-transparent" style={{ color: T.text, colorScheme: 'dark' }} />
+        <div className="rounded-xl px-4 py-3 space-y-3" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
+          <div>
+            <label className="block text-xs mb-1" style={{ color: T.muted }}>알림 시간 (선택)</label>
+            <div className="flex items-center gap-2">
+              <input type="time" value={notifyTime} onChange={(e) => setNotifyTime(e.target.value)}
+                className="text-sm outline-none bg-transparent flex-1" style={{ color: notifyTime ? T.accent : T.muted, colorScheme: 'dark' }} />
+              {notifyTime && (
+                <button onClick={() => setNotifyTime('')} className="text-xs" style={{ color: T.muted }}>지우기</button>
+              )}
+            </div>
+          </div>
+
+          {/* 빠른 설정 버튼 */}
+          <div>
+            <p className="text-xs mb-2" style={{ color: T.muted }}>빠른 설정</p>
+            <div className="flex gap-2 flex-wrap">
+              {[15, 30, 60].map((min) => {
+                const label = min < 60 ? `${min}분 뒤` : `1시간 뒤`
+                return (
+                  <button key={min} onClick={() => {
+                    const d = new Date(Date.now() + min * 60 * 1000)
+                    setNotifyTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
+                    setCustomOpen(false)
+                  }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                    style={{ background: T.surface2, color: T.muted, border: `1px solid ${T.border}` }}>
+                    {label}
+                  </button>
+                )
+              })}
+              <button onClick={() => setCustomOpen((v) => !v)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  background: customOpen ? T.accentDim : T.surface2,
+                  color: customOpen ? T.accent : T.muted,
+                  border: `1px solid ${customOpen ? T.accentBorder : T.border}`,
+                }}>
+                직접 설정
+              </button>
+            </div>
+          </div>
+
+          {/* 직접 설정 패널 */}
+          {customOpen && (
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-1">
+                <input
+                  type="number" min={0} max={23}
+                  value={customHours}
+                  onChange={(e) => setCustomHours(Math.max(0, Math.min(23, Number(e.target.value))))}
+                  className="w-12 text-center text-sm outline-none rounded-lg py-1.5 bg-transparent"
+                  style={{ border: `1px solid ${T.border}`, color: T.text }}
+                />
+                <span className="text-xs" style={{ color: T.muted }}>시간</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number" min={0} max={59}
+                  value={customMinutes}
+                  onChange={(e) => setCustomMinutes(Math.max(0, Math.min(59, Number(e.target.value))))}
+                  className="w-12 text-center text-sm outline-none rounded-lg py-1.5 bg-transparent"
+                  style={{ border: `1px solid ${T.border}`, color: T.text }}
+                />
+                <span className="text-xs" style={{ color: T.muted }}>분 뒤</span>
+              </div>
+              <button onClick={() => {
+                const totalMin = customHours * 60 + customMinutes
+                if (totalMin <= 0) return
+                const d = new Date(Date.now() + totalMin * 60 * 1000)
+                setNotifyTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
+                setCustomOpen(false)
+              }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ background: T.accent, color: '#0d0d12' }}>
+                적용
+              </button>
+            </div>
+          )}
         </div>
 
         {isTeam && (
