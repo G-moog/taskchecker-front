@@ -8,6 +8,7 @@ import EditPage from './pages/EditPage'
 import JoinTeamPage from './pages/JoinTeamPage'
 import TeamSettingsPage from './pages/TeamSettingsPage'
 import MyPage from './pages/MyPage'
+import TodoPage from './pages/TodoPage'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -37,6 +38,7 @@ function AppRoutes() {
       <Route path="/checklist/:id/edit" element={<EditPage />} />
       <Route path="/join-team" element={<JoinTeamPage />} />
       <Route path="/team/:teamId/settings" element={<TeamSettingsPage />} />
+      <Route path="/todos" element={<TodoPage />} />
       <Route path="/mypage" element={<MyPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

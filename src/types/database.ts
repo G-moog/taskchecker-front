@@ -70,6 +70,14 @@ export interface ChecklistNotifyTarget {
   created_at: string
 }
 
+export interface Todo {
+  id: string
+  user_id: string
+  title: string
+  done: boolean
+  created_at: string
+}
+
 export interface UserPushToken {
   id: string
   user_id: string
@@ -126,6 +134,12 @@ export type Database = {
         Row: UserPushToken
         Insert: Omit<UserPushToken, 'id' | 'updated_at'>
         Update: Partial<Omit<UserPushToken, 'id'>>
+        Relationships: []
+      }
+      todos: {
+        Row: Todo
+        Insert: Omit<Todo, 'id' | 'created_at'>
+        Update: Partial<Omit<Todo, 'id'>>
         Relationships: []
       }
     }

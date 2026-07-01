@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "294381230251",
+    "project_id": "taskchecker-d44e6",
+    "storage_bucket": "taskchecker-d44e6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:294381230251:android:5e4dd0630b5dca29607fee",
+        "android_client_info": {
+          "package_name": "com.taskchecker.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeAOmxZPLoYZAdhh6zogZYpbolUeaar2s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
