@@ -48,6 +48,7 @@ export interface ChecklistItem {
   checklist_id: string
   label: string
   sort_order: number
+  todo_id: string | null
   created_at: string
   updated_at: string
 }
