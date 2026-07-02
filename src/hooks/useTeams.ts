@@ -43,6 +43,11 @@ export function useTeams(userId: string | undefined) {
       .select()
       .single()
     if (!error && data) {
+      await supabase.from('team_members').insert({
+        team_id: data.id,
+        user_id: userId!,
+        role: 'admin',
+      })
       setTeams((prev) => [...prev, { ...data, role: 'admin' }])
     }
     return { data, error }
