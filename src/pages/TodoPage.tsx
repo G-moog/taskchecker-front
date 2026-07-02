@@ -1,4 +1,7 @@
 ﻿import { useEffect, useRef, useState } from 'react'
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useAuth } from '../hooks/useAuth'
 import { Sidebar } from '../components/Sidebar'
 import { supabase } from '../lib/supabase'
@@ -17,6 +20,11 @@ export default function TodoPage() {
   const [loading, setLoading] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { delay: 300, tolerance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 5 } }),
+  )
+
   useEffect(() => {
     if (!user) return
     loadTodos()
@@ -33,7 +41,6 @@ export default function TodoPage() {
     if (!todoData) { setLoading(false); return }
 
     const todoIds = todoData.map((t) => t.id)
-
     const { data: linkData } = await supabase
       .from('checklist_items')
       .select('todo_id, checklists(title)')
@@ -76,6 +83,16 @@ export default function TodoPage() {
     await supabase.from('todos').delete().eq('id', id)
   }
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setTodos((prev) => {
+      const oldIdx = prev.findIndex((t) => t.id === active.id)
+      const newIdx = prev.findIndex((t) => t.id === over.id)
+      return arrayMove(prev, oldIdx, newIdx)
+    })
+  }
+
   const pending = todos.filter((t) => !t.done)
   const done = todos.filter((t) => t.done)
 
@@ -116,11 +133,17 @@ export default function TodoPage() {
             {pending.length === 0 && done.length === 0 && (
               <div className="text-center text-sm py-10" style={{ color: T.muted }}>할 일을 추가해보세요</div>
             )}
-            <div className="space-y-2">
-              {pending.map((todo) => (
-                <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} onDelete={handleDelete} />
-              ))}
-            </div>
+
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={pending.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {pending.map((todo) => (
+                    <SortableTodoItem key={todo.id} todo={todo} onToggle={handleToggle} onDelete={handleDelete} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+
             {done.length > 0 && (
               <div className="mt-6">
                 <div className="text-xs font-medium mb-2" style={{ color: T.muted }}>완료 ({done.length})</div>
@@ -138,14 +161,40 @@ export default function TodoPage() {
   )
 }
 
-function TodoItem({ todo, onToggle, onDelete }: {
+function SortableTodoItem({ todo, onToggle, onDelete }: {
   todo: TodoWithChecklists
   onToggle: (t: TodoWithChecklists) => void
   onDelete: (id: string) => void
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: todo.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <TodoItem todo={todo} onToggle={onToggle} onDelete={onDelete} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  )
+}
+
+function TodoItem({ todo, onToggle, onDelete, dragHandleProps }: {
+  todo: TodoWithChecklists
+  onToggle: (t: TodoWithChecklists) => void
+  onDelete: (id: string) => void
+  dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>
+}) {
   return (
     <div className="px-3 py-2.5 rounded-lg" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
       <div className="flex items-center gap-3">
+        {dragHandleProps && (
+          <span {...dragHandleProps} className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none select-none"
+            style={{ color: T.border }}>
+            ⠿
+          </span>
+        )}
         <button onClick={() => onToggle(todo)} className="flex-shrink-0">
           <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
             style={{ borderColor: todo.done ? T.accent : T.border, background: todo.done ? T.accent : 'transparent' }}>
@@ -168,9 +217,7 @@ function TodoItem({ todo, onToggle, onDelete }: {
       </div>
       {todo.checklists.length > 0 && (
         <div className="mt-1.5 ml-8">
-          <span className="text-xs" style={{ color: T.muted }}>
-            {todo.checklists.join(', ')}
-          </span>
+          <span className="text-xs" style={{ color: T.muted }}>{todo.checklists.join(', ')}</span>
         </div>
       )}
     </div>
