@@ -88,7 +88,28 @@ function DateDetailSheet({ dateStr, entries, onSelectChecklist, onClose }: {
         <button onClick={onClose} className="text-lg leading-none" style={{ color: T.muted }}>×</button>
       </div>
       <div className="px-4 pb-6 space-y-2">
-        {entries.map((entry) => {
+        {entries.map((entry, i) => {
+          if (entry.isTodo) {
+            const timeStr = entry.notifyAt
+              ? new Date(entry.notifyAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+              : ''
+            return (
+              <div key={`todo-${i}`}
+                className="w-full flex items-center justify-between rounded-xl px-4 py-3"
+                style={{ background: T.surface2, border: `1px solid ${entry.todoFired ? T.accentBorder : T.border}` }}>
+                <div className="flex items-center gap-2">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                    style={{ color: entry.todoFired ? T.accent : T.muted, flexShrink: 0 }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17H9m6 0a3 3 0 01-6 0m6 0H3.5m17 0H15M12 3v1m0 0a7 7 0 017 7v3l1.5 1.5H3.5L5 14v-3a7 7 0 017-7z" />
+                  </svg>
+                  <span className="text-sm" style={{ color: T.text }}>{entry.title}</span>
+                </div>
+                <span className="text-xs" style={{ color: entry.todoFired ? T.accent : T.muted }}>
+                  {timeStr} {entry.todoFired ? '알림' : '예정'}
+                </span>
+              </div>
+            )
+          }
           const sym = statusSymbol(entry.status)
           return (
             <button key={entry.checklistId} onClick={() => onSelectChecklist(entry.checklistId, entry.title)}
@@ -174,10 +195,14 @@ export default function MyPage() {
               const isSelected = selectedDate === dateStr
               const dayOfWeek = idx % 7
 
+              const checklistEntries = entries.filter(e => !e.isTodo)
+              const todoEntries = entries.filter(e => e.isTodo)
               const statusPriority: Record<string, number> = { all: 1, partial: 2, none: 3, future: 0 }
-              const worstEntry = entries
+              const worstEntry = checklistEntries
                 .filter(e => e.status !== 'future')
                 .sort((a, b) => statusPriority[b.status] - statusPriority[a.status])[0]
+              const hasFiredTodo = todoEntries.some(e => e.todoFired)
+              const hasPendingTodo = todoEntries.some(e => !e.todoFired)
 
               return (
                 <button key={dateStr} onClick={() => setSelectedDate(isSelected ? null : dateStr)}
@@ -195,8 +220,11 @@ export default function MyPage() {
                       {statusSymbol(worstEntry.status)?.symbol}
                     </span>
                   )}
-                  {!worstEntry && entries.length > 0 && (
+                  {!worstEntry && checklistEntries.length > 0 && (
                     <span className="w-1 h-1 rounded-full mt-0.5" style={{ background: T.accent }} />
+                  )}
+                  {(hasFiredTodo || hasPendingTodo) && (
+                    <span className="text-xs leading-none mt-0.5" style={{ color: hasFiredTodo ? T.accent : T.muted }}>🔔</span>
                   )}
                 </button>
               )

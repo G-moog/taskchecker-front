@@ -104,10 +104,18 @@ serve(async () => {
       await sendFcm(accessToken, row.fcm_token, '할 일 알림', todo.title)
     }
 
+    const now = new Date().toISOString()
     await supabase
       .from('todos')
-      .update({ notify_sent_at: new Date().toISOString() })
+      .update({ notify_sent_at: now })
       .eq('id', todo.id)
+
+    await supabase.from('todo_notify_log').insert({
+      user_id: todo.user_id,
+      todo_id: todo.id,
+      title: todo.title,
+      notified_at: now,
+    })
 
     sent++
   }
