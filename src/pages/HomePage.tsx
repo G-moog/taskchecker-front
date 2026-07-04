@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useTeams } from '../hooks/useTeams'
 import { useChecklists } from '../hooks/useChecklists'
 import { Sidebar } from '../components/Sidebar'
 import { TeamStatusTab } from '../components/TeamStatusTab'
-import { supabase } from '../lib/supabase'
+import { TeamTodoList } from '../components/TeamTodoList'
 import { T } from '../theme'
-import type { Checklist, Todo } from '../types/database'
+import type { Checklist } from '../types/database'
 
 type Tab = 'personal' | 'team'
 type TeamSubTab = 'checklist' | 'todo' | 'status'
@@ -47,54 +47,6 @@ export default function HomePage() {
   const selectedTeam = teams.find((t) => t.id === selectedTeamId)
 
   const [teamNameError, setTeamNameError] = useState('')
-
-  // 팀 할 일 상태
-  const [teamTodos, setTeamTodos] = useState<Todo[]>([])
-  const [teamTodoInput, setTeamTodoInput] = useState('')
-  const [teamTodoLoading, setTeamTodoLoading] = useState(false)
-  const teamTodoInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (tab === 'team' && teamSubTab === 'todo' && selectedTeamId) {
-      loadTeamTodos()
-    }
-  }, [tab, teamSubTab, selectedTeamId])
-
-  const loadTeamTodos = async () => {
-    if (!selectedTeamId) return
-    setTeamTodoLoading(true)
-    const { data } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('team_id', selectedTeamId)
-      .order('created_at', { ascending: false })
-    setTeamTodos(data ?? [])
-    setTeamTodoLoading(false)
-  }
-
-  const handleAddTeamTodo = async () => {
-    if (!teamTodoInput.trim() || !user || !selectedTeamId) return
-    const title = teamTodoInput.trim()
-    setTeamTodoInput('')
-    const { data } = await supabase
-      .from('todos')
-      .insert({ user_id: user.id, team_id: selectedTeamId, title, done: false })
-      .select()
-      .single()
-    if (data) setTeamTodos((prev) => [data, ...prev])
-    teamTodoInputRef.current?.focus()
-  }
-
-  const handleToggleTeamTodo = async (todo: Todo) => {
-    const done = !todo.done
-    setTeamTodos((prev) => prev.map((t) => t.id === todo.id ? { ...t, done } : t))
-    await supabase.from('todos').update({ done }).eq('id', todo.id)
-  }
-
-  const handleDeleteTeamTodo = async (id: string) => {
-    setTeamTodos((prev) => prev.filter((t) => t.id !== id))
-    await supabase.from('todos').delete().eq('id', id)
-  }
 
   const handleCreateTeam = async () => {
     if (!newTeamName.trim()) return
@@ -236,49 +188,7 @@ export default function HomePage() {
       {showTeamSubTabs && teamSubTab === 'status' ? (
         <TeamStatusTab teamId={selectedTeamId} />
       ) : showTeamSubTabs && teamSubTab === 'todo' ? (
-        /* 팀 할 일 목록 */
-        <div className="px-4 py-4 max-w-lg mx-auto">
-          <div className="flex gap-2 mb-4">
-            <input
-              ref={teamTodoInputRef}
-              value={teamTodoInput}
-              onChange={(e) => setTeamTodoInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddTeamTodo()}
-              placeholder="팀 할 일을 입력하세요"
-              className="flex-1 px-3 py-2.5 rounded-lg text-sm outline-none"
-              style={{ background: T.surface2, color: T.text, border: `1px solid ${T.border}` }}
-            />
-            <button
-              onClick={handleAddTeamTodo}
-              className="px-4 py-2.5 rounded-lg text-sm font-medium"
-              style={{ background: T.accent, color: '#fff' }}
-            >
-              추가
-            </button>
-          </div>
-
-          {teamTodoLoading ? (
-            <p className="text-center text-sm py-8" style={{ color: T.muted }}>불러오는 중...</p>
-          ) : teamTodos.length === 0 ? (
-            <p className="text-center text-sm py-8" style={{ color: T.muted }}>팀 할 일을 추가해보세요</p>
-          ) : (
-            <div className="space-y-2">
-              {teamTodos.filter((t) => !t.done).map((todo) => (
-                <TeamTodoItem key={todo.id} todo={todo} onToggle={handleToggleTeamTodo} onDelete={handleDeleteTeamTodo} />
-              ))}
-              {teamTodos.filter((t) => t.done).length > 0 && (
-                <div className="mt-4">
-                  <div className="text-xs font-medium mb-2" style={{ color: T.muted }}>
-                    완료 ({teamTodos.filter((t) => t.done).length})
-                  </div>
-                  {teamTodos.filter((t) => t.done).map((todo) => (
-                    <TeamTodoItem key={todo.id} todo={todo} onToggle={handleToggleTeamTodo} onDelete={handleDeleteTeamTodo} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <TeamTodoList teamId={selectedTeamId} />
       ) : (
         /* 체크리스트 목록 */
         <div className="px-4 py-4 space-y-2 max-w-lg mx-auto">
@@ -313,40 +223,6 @@ export default function HomePage() {
           </button>
         </div>
       )}
-    </div>
-  )
-}
-
-function TeamTodoItem({ todo, onToggle, onDelete }: {
-  todo: Todo
-  onToggle: (t: Todo) => void
-  onDelete: (id: string) => void
-}) {
-  return (
-    <div className="px-3 py-2.5 rounded-lg" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
-      <div className="flex items-center gap-3">
-        <button onClick={() => onToggle(todo)} className="flex-shrink-0">
-          <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
-            style={{ borderColor: todo.done ? T.accent : T.border, background: todo.done ? T.accent : 'transparent' }}>
-            {todo.done && (
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                <path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
-          </div>
-        </button>
-        <span
-          className="flex-1 text-sm"
-          style={{ color: todo.done ? T.muted : T.text, textDecoration: todo.done ? 'line-through' : 'none' }}
-        >
-          {todo.title}
-        </span>
-        <button onClick={() => onDelete(todo.id)} className="flex-shrink-0 p-1" style={{ color: T.muted }}>
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
     </div>
   )
 }

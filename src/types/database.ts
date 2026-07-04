@@ -74,6 +74,7 @@ export interface ChecklistNotifyTarget {
 export interface Todo {
   id: string
   user_id: string
+  team_id: string | null
   title: string
   done: boolean
   sort_order: number | null
