@@ -24,6 +24,8 @@ export default function TodoPage() {
   const [sheetTodo, setSheetTodo] = useState<TodoWithChecklists | null>(null)
   const [checklists, setChecklists] = useState<Checklist[]>([])
   const [adding, setAdding] = useState<string | null>(null)
+  const [notifyInput, setNotifyInput] = useState('')
+  const [savingNotify, setSavingNotify] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 300, tolerance: 5 } }),
@@ -119,7 +121,37 @@ export default function TodoPage() {
       .eq('owner_id', user.id)
       .order('created_at', { ascending: false })
     setChecklists(data ?? [])
+    // notify_at을 datetime-local 입력값 형식으로 변환
+    if (todo.notify_at) {
+      const d = new Date(todo.notify_at)
+      const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16)
+      setNotifyInput(local)
+    } else {
+      setNotifyInput('')
+    }
     setSheetTodo(todo)
+  }
+
+  const handleSaveNotify = async () => {
+    if (!sheetTodo) return
+    setSavingNotify(true)
+    const notify_at = notifyInput ? new Date(notifyInput).toISOString() : null
+    await supabase.from('todos').update({ notify_at }).eq('id', sheetTodo.id)
+    setTodos((prev) =>
+      prev.map((t) => t.id === sheetTodo.id ? { ...t, notify_at } : t)
+    )
+    setSavingNotify(false)
+  }
+
+  const handleClearNotify = async () => {
+    if (!sheetTodo) return
+    await supabase.from('todos').update({ notify_at: null }).eq('id', sheetTodo.id)
+    setTodos((prev) =>
+      prev.map((t) => t.id === sheetTodo.id ? { ...t, notify_at: null } : t)
+    )
+    setNotifyInput('')
   }
 
   const handleSelectChecklist = async (checklist: Checklist) => {
@@ -261,9 +293,40 @@ export default function TodoPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: T.border }} />
-            <p className="text-xs mb-1" style={{ color: T.muted }}>할 일을 체크리스트에 추가</p>
             <p className="text-sm font-semibold mb-4" style={{ color: T.text }}>"{sheetTodo.title}"</p>
 
+            {/* 알림 설정 영역 */}
+            <div className="rounded-xl p-3 mb-5" style={{ background: T.surface2, border: `1px solid ${T.border}` }}>
+              <div className="flex items-center gap-2 mb-3">
+                <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: T.accent }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 17H9m6 0a3 3 0 01-6 0m6 0H3.5m17 0H15M12 3v1m0 0a7 7 0 017 7v3l1.5 1.5H3.5L5 14v-3a7 7 0 017-7z" />
+                </svg>
+                <span className="text-xs font-semibold" style={{ color: T.text }}>알림 설정</span>
+                {sheetTodo.notify_at && (
+                  <button onClick={handleClearNotify} className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: T.border, color: T.muted }}>
+                    알림 삭제
+                  </button>
+                )}
+              </div>
+              <input
+                type="datetime-local"
+                value={notifyInput}
+                onChange={(e) => setNotifyInput(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-2"
+                style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}` }}
+              />
+              <button
+                onClick={handleSaveNotify}
+                disabled={savingNotify}
+                className="w-full py-2 rounded-lg text-sm font-medium"
+                style={{ background: T.accent, color: '#fff', opacity: savingNotify ? 0.6 : 1 }}
+              >
+                {savingNotify ? '저장 중...' : '알림 저장'}
+              </button>
+            </div>
+
+            {/* 체크리스트 등록 영역 */}
+            <p className="text-xs mb-2" style={{ color: T.muted }}>체크리스트에 추가</p>
             {checklists.length === 0 ? (
               <p className="text-sm text-center py-6" style={{ color: T.muted }}>체크리스트 주제가 없습니다</p>
             ) : (
@@ -374,8 +437,16 @@ function TodoItem({ todo, onToggle, onDelete, onLongPress, dragHandleProps }: {
           </svg>
         </button>
       </div>
-      {todo.checklists.length > 0 && (
-        <div className="mt-1.5 ml-8 flex flex-wrap gap-1">
+      {(todo.checklists.length > 0 || todo.notify_at) && (
+        <div className="mt-1.5 ml-8 flex flex-wrap gap-1 items-center">
+          {todo.notify_at && (
+            <span className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: T.surface2, color: T.accent }}>
+              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17H9m6 0a3 3 0 01-6 0m6 0H3.5m17 0H15M12 3v1m0 0a7 7 0 017 7v3l1.5 1.5H3.5L5 14v-3a7 7 0 017-7z" />
+              </svg>
+              {new Date(todo.notify_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
           {todo.checklists.map((name) => (
             <span key={name} className="text-xs px-2 py-0.5 rounded-full" style={{ background: T.surface2, color: T.muted }}>
               {name}

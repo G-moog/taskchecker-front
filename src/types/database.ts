@@ -77,6 +77,7 @@ export interface Todo {
   title: string
   done: boolean
   sort_order: number | null
+  notify_at: string | null
   created_at: string
 }
 
