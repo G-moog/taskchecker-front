@@ -26,6 +26,7 @@ export default function TodoPage() {
   const [adding, setAdding] = useState<string | null>(null)
   const [notifyInput, setNotifyInput] = useState('')
   const [savingNotify, setSavingNotify] = useState(false)
+  const [showCustomTime, setShowCustomTime] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 300, tolerance: 5 } }),
@@ -121,7 +122,6 @@ export default function TodoPage() {
       .eq('owner_id', user.id)
       .order('created_at', { ascending: false })
     setChecklists(data ?? [])
-    // notify_at을 datetime-local 입력값 형식으로 변환
     if (todo.notify_at) {
       const d = new Date(todo.notify_at)
       const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
@@ -131,6 +131,7 @@ export default function TodoPage() {
     } else {
       setNotifyInput('')
     }
+    setShowCustomTime(false)
     setSheetTodo(todo)
   }
 
@@ -143,6 +144,18 @@ export default function TodoPage() {
       prev.map((t) => t.id === sheetTodo.id ? { ...t, notify_at } : t)
     )
     setSavingNotify(false)
+  }
+
+  const handleQuickNotify = async (minutes: number) => {
+    if (!sheetTodo) return
+    setSavingNotify(true)
+    const notify_at = new Date(Date.now() + minutes * 60 * 1000).toISOString()
+    await supabase.from('todos').update({ notify_at }).eq('id', sheetTodo.id)
+    setTodos((prev) =>
+      prev.map((t) => t.id === sheetTodo.id ? { ...t, notify_at } : t)
+    )
+    setSavingNotify(false)
+    setSheetTodo(null)
   }
 
   const handleClearNotify = async () => {
@@ -308,21 +321,57 @@ export default function TodoPage() {
                   </button>
                 )}
               </div>
-              <input
-                type="datetime-local"
-                value={notifyInput}
-                onChange={(e) => setNotifyInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-2"
-                style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}` }}
-              />
+
+              {/* 빠른 시간 버튼 */}
+              <div className="grid grid-cols-4 gap-2 mb-2">
+                {([['5분', 5], ['10분', 10], ['30분', 30], ['1시간', 60]] as const).map(([label, min]) => (
+                  <button
+                    key={label}
+                    onClick={() => handleQuickNotify(min)}
+                    disabled={savingNotify}
+                    className="py-2 rounded-lg text-xs font-medium"
+                    style={{ background: T.surface, color: T.accent, border: `1px solid ${T.accent}` }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 직접 설정 토글 */}
               <button
-                onClick={handleSaveNotify}
-                disabled={savingNotify}
-                className="w-full py-2 rounded-lg text-sm font-medium"
-                style={{ background: T.accent, color: '#fff', opacity: savingNotify ? 0.6 : 1 }}
+                onClick={() => setShowCustomTime((v) => !v)}
+                className="w-full py-2 rounded-lg text-xs font-medium mb-2 flex items-center justify-center gap-1"
+                style={{ background: T.surface, color: T.muted, border: `1px solid ${T.border}` }}
               >
-                {savingNotify ? '저장 중...' : '알림 저장'}
+                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" /><path strokeLinecap="round" d="M12 6v6l4 2" />
+                </svg>
+                직접 설정
+                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                  style={{ transform: showCustomTime ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
+
+              {showCustomTime && (
+                <>
+                  <input
+                    type="datetime-local"
+                    value={notifyInput}
+                    onChange={(e) => setNotifyInput(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg text-sm outline-none mb-2"
+                    style={{ background: T.surface, color: T.text, border: `1px solid ${T.border}` }}
+                  />
+                  <button
+                    onClick={handleSaveNotify}
+                    disabled={savingNotify}
+                    className="w-full py-2 rounded-lg text-sm font-medium"
+                    style={{ background: T.accent, color: '#fff', opacity: savingNotify ? 0.6 : 1 }}
+                  >
+                    {savingNotify ? '저장 중...' : '알림 저장'}
+                  </button>
+                </>
+              )}
             </div>
 
             {/* 체크리스트 등록 영역 */}
