@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -6,7 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import { Sidebar } from '../components/Sidebar'
 import { supabase } from '../lib/supabase'
 import { T } from '../theme'
-import type { Todo } from '../types/database'
+import type { Todo, Checklist } from '../types/database'
 
 interface TodoWithChecklists extends Todo {
   checklists: string[]
@@ -19,6 +19,10 @@ export default function TodoPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const [sheetTodo, setSheetTodo] = useState<TodoWithChecklists | null>(null)
+  const [checklists, setChecklists] = useState<Checklist[]>([])
+  const [adding, setAdding] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 300, tolerance: 5 } }),
@@ -93,6 +97,59 @@ export default function TodoPage() {
     })
   }
 
+  const handleLongPress = async (todo: TodoWithChecklists) => {
+    if (!user) return
+    const { data } = await supabase
+      .from('checklists')
+      .select('*')
+      .eq('owner_type', 'personal')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false })
+    setChecklists(data ?? [])
+    setSheetTodo(todo)
+  }
+
+  const handleSelectChecklist = async (checklist: Checklist) => {
+    if (!sheetTodo) return
+    setAdding(checklist.id)
+
+    const { data: existing } = await supabase
+      .from('checklist_items')
+      .select('id')
+      .eq('checklist_id', checklist.id)
+      .eq('todo_id', sheetTodo.id)
+      .maybeSingle()
+
+    if (!existing) {
+      const { data: items } = await supabase
+        .from('checklist_items')
+        .select('sort_order')
+        .eq('checklist_id', checklist.id)
+        .order('sort_order', { ascending: false })
+        .limit(1)
+
+      const nextOrder = (items?.[0]?.sort_order ?? -1) + 1
+
+      await supabase.from('checklist_items').insert({
+        checklist_id: checklist.id,
+        label: sheetTodo.title,
+        sort_order: nextOrder,
+        todo_id: sheetTodo.id,
+      })
+
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === sheetTodo.id && !t.checklists.includes(checklist.title)
+            ? { ...t, checklists: [...t.checklists, checklist.title] }
+            : t
+        )
+      )
+    }
+
+    setAdding(null)
+    setSheetTodo(null)
+  }
+
   const pending = todos.filter((t) => !t.done)
   const done = todos.filter((t) => t.done)
 
@@ -138,7 +195,7 @@ export default function TodoPage() {
               <SortableContext items={pending.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                   {pending.map((todo) => (
-                    <SortableTodoItem key={todo.id} todo={todo} onToggle={handleToggle} onDelete={handleDelete} />
+                    <SortableTodoItem key={todo.id} todo={todo} onToggle={handleToggle} onDelete={handleDelete} onLongPress={handleLongPress} />
                   ))}
                 </div>
               </SortableContext>
@@ -149,7 +206,7 @@ export default function TodoPage() {
                 <div className="text-xs font-medium mb-2" style={{ color: T.muted }}>완료 ({done.length})</div>
                 <div className="space-y-2">
                   {done.map((todo) => (
-                    <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} onDelete={handleDelete} />
+                    <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} onDelete={handleDelete} onLongPress={handleLongPress} />
                   ))}
                 </div>
               </div>
@@ -157,14 +214,59 @@ export default function TodoPage() {
           </>
         )}
       </div>
+
+      {/* 체크리스트 선택 바텀시트 */}
+      {sheetTodo && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setSheetTodo(null)}>
+          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.4)' }} />
+          <div
+            className="relative rounded-t-2xl px-4 pt-4 pb-8"
+            style={{ background: T.surface, maxHeight: '70vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: T.border }} />
+            <p className="text-xs mb-1" style={{ color: T.muted }}>할 일을 체크리스트에 추가</p>
+            <p className="text-sm font-semibold mb-4" style={{ color: T.text }}>"{sheetTodo.title}"</p>
+
+            {checklists.length === 0 ? (
+              <p className="text-sm text-center py-6" style={{ color: T.muted }}>체크리스트 주제가 없습니다</p>
+            ) : (
+              <div className="space-y-2">
+                {checklists.map((cl) => {
+                  const alreadyAdded = sheetTodo.checklists.includes(cl.title)
+                  return (
+                    <button
+                      key={cl.id}
+                      disabled={alreadyAdded || adding === cl.id}
+                      onClick={() => handleSelectChecklist(cl)}
+                      className="w-full text-left px-4 py-3 rounded-xl text-sm flex items-center justify-between"
+                      style={{
+                        background: T.surface2,
+                        color: alreadyAdded ? T.muted : T.text,
+                        opacity: alreadyAdded ? 0.6 : 1,
+                        border: `1px solid ${T.border}`,
+                      }}
+                    >
+                      <span>{cl.title}</span>
+                      {alreadyAdded && <span className="text-xs" style={{ color: T.muted }}>추가됨</span>}
+                      {adding === cl.id && <span className="text-xs" style={{ color: T.muted }}>추가 중...</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function SortableTodoItem({ todo, onToggle, onDelete }: {
+function SortableTodoItem({ todo, onToggle, onDelete, onLongPress }: {
   todo: TodoWithChecklists
   onToggle: (t: TodoWithChecklists) => void
   onDelete: (id: string) => void
+  onLongPress: (t: TodoWithChecklists) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: todo.id })
   const style = {
@@ -175,17 +277,33 @@ function SortableTodoItem({ todo, onToggle, onDelete }: {
   }
   return (
     <div ref={setNodeRef} style={style}>
-      <TodoItem todo={todo} onToggle={onToggle} onDelete={onDelete} dragHandleProps={{ ...attributes, ...listeners }} />
+      <TodoItem todo={todo} onToggle={onToggle} onDelete={onDelete} onLongPress={onLongPress} dragHandleProps={{ ...attributes, ...listeners }} />
     </div>
   )
 }
 
-function TodoItem({ todo, onToggle, onDelete, dragHandleProps }: {
+function TodoItem({ todo, onToggle, onDelete, onLongPress, dragHandleProps }: {
   todo: TodoWithChecklists
   onToggle: (t: TodoWithChecklists) => void
   onDelete: (id: string) => void
+  onLongPress: (t: TodoWithChecklists) => void
   dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>
 }) {
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const didLongPress = useRef(false)
+
+  const startLongPress = () => {
+    didLongPress.current = false
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true
+      onLongPress(todo)
+    }, 500)
+  }
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current)
+  }
+
   return (
     <div className="px-3 py-2.5 rounded-lg" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
       <div className="flex items-center gap-3">
@@ -205,8 +323,13 @@ function TodoItem({ todo, onToggle, onDelete, dragHandleProps }: {
             )}
           </div>
         </button>
-        <span className="flex-1 text-sm"
-          style={{ color: todo.done ? T.muted : T.text, textDecoration: todo.done ? 'line-through' : 'none' }}>
+        <span
+          className="flex-1 text-sm select-none"
+          style={{ color: todo.done ? T.muted : T.text, textDecoration: todo.done ? 'line-through' : 'none' }}
+          onPointerDown={startLongPress}
+          onPointerUp={cancelLongPress}
+          onPointerLeave={cancelLongPress}
+        >
           {todo.title}
         </span>
         <button onClick={() => onDelete(todo.id)} className="flex-shrink-0 p-1" style={{ color: T.muted }}>
@@ -216,8 +339,12 @@ function TodoItem({ todo, onToggle, onDelete, dragHandleProps }: {
         </button>
       </div>
       {todo.checklists.length > 0 && (
-        <div className="mt-1.5 ml-8">
-          <span className="text-xs" style={{ color: T.muted }}>{todo.checklists.join(', ')}</span>
+        <div className="mt-1.5 ml-8 flex flex-wrap gap-1">
+          {todo.checklists.map((name) => (
+            <span key={name} className="text-xs px-2 py-0.5 rounded-full" style={{ background: T.surface2, color: T.muted }}>
+              {name}
+            </span>
+          ))}
         </div>
       )}
     </div>
