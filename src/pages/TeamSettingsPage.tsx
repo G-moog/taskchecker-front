@@ -49,6 +49,13 @@ export default function TeamSettingsPage() {
     setCodeLoading(false)
   }
 
+  const handleDeleteTeam = async () => {
+    if (!teamId || !isAdmin) return
+    if (!window.confirm(`"${teamName}" 팀을 삭제하시겠습니까?\n팀원 및 초대 코드가 모두 삭제됩니다.`)) return
+    await supabase.from('teams').delete().eq('id', teamId)
+    navigate('/')
+  }
+
   const handleRevokeCode = async () => {
     if (!activeCode) return
     setCodeLoading(true)
@@ -93,6 +100,20 @@ export default function TeamSettingsPage() {
             </button>
           )}
         </div>
+
+        {/* 팀 삭제 */}
+        {isAdmin && (
+          <div className="rounded-xl p-4" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
+            <h2 className="text-xs mb-3" style={{ color: T.muted }}>위험 구역</h2>
+            <button
+              onClick={handleDeleteTeam}
+              className="w-full py-2.5 rounded-lg text-sm font-medium"
+              style={{ background: 'transparent', color: T.danger, border: `1px solid ${T.danger}` }}
+            >
+              팀 삭제
+            </button>
+          </div>
+        )}
 
         {/* 멤버 */}
         <div className="rounded-xl overflow-hidden" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
