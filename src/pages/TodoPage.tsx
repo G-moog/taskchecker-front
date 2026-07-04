@@ -20,6 +20,7 @@ export default function TodoPage() {
   const [loading, setLoading] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const [filter, setFilter] = useState<'all' | 'unlinked' | 'linked'>('unlinked')
   const [sheetTodo, setSheetTodo] = useState<TodoWithChecklists | null>(null)
   const [checklists, setChecklists] = useState<Checklist[]>([])
   const [adding, setAdding] = useState<string | null>(null)
@@ -162,8 +163,13 @@ export default function TodoPage() {
     setSheetTodo(null)
   }
 
-  const pending = todos.filter((t) => !t.done)
-  const done = todos.filter((t) => t.done)
+  const filteredTodos = todos.filter((t) => {
+    if (filter === 'unlinked') return t.checklists.length === 0
+    if (filter === 'linked') return t.checklists.length > 0
+    return true
+  })
+  const pending = filteredTodos.filter((t) => !t.done)
+  const done = filteredTodos.filter((t) => t.done)
 
   return (
     <div className="min-h-screen" style={{ background: T.bg }}>
@@ -193,6 +199,24 @@ export default function TodoPage() {
             style={{ background: T.accent, color: '#fff' }}>
             추가
           </button>
+        </div>
+
+        {/* 필터 탭 */}
+        <div className="flex gap-2 mb-4">
+          {([['all', '전체'], ['unlinked', '미등록'], ['linked', '등록']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+              style={{
+                background: filter === key ? T.accent : T.surface2,
+                color: filter === key ? '#fff' : T.muted,
+                border: `1px solid ${filter === key ? T.accent : T.border}`,
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {loading ? (
