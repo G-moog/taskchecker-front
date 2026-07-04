@@ -40,6 +40,7 @@ export default function TodoPage() {
       .from('todos')
       .select('*')
       .eq('user_id', user.id)
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
 
     if (!todoData) { setLoading(false); return }
@@ -72,7 +73,12 @@ export default function TodoPage() {
       .insert({ user_id: user.id, title, done: false })
       .select()
       .single()
-    if (data) setTodos((prev) => [{ ...data, checklists: [] }, ...prev])
+    if (data) {
+      const minOrder = todos.reduce((min, t) => Math.min(min, t.sort_order ?? 0), 0)
+      const newOrder = minOrder - 1
+      await supabase.from('todos').update({ sort_order: newOrder }).eq('id', data.id)
+      setTodos((prev) => [{ ...data, sort_order: newOrder, checklists: [] }, ...prev])
+    }
     inputRef.current?.focus()
   }
 
@@ -93,7 +99,13 @@ export default function TodoPage() {
     setTodos((prev) => {
       const oldIdx = prev.findIndex((t) => t.id === active.id)
       const newIdx = prev.findIndex((t) => t.id === over.id)
-      return arrayMove(prev, oldIdx, newIdx)
+      const next = arrayMove(prev, oldIdx, newIdx)
+      // pending 항목들의 sort_order를 index 순서로 DB에 저장
+      const pending = next.filter((t) => !t.done)
+      pending.forEach((todo, idx) => {
+        supabase.from('todos').update({ sort_order: idx }).eq('id', todo.id)
+      })
+      return next
     })
   }
 
