@@ -53,7 +53,7 @@ export default function TeamSettingsPage() {
     if (!teamId || !isAdmin) return
     if (!window.confirm(`"${teamName}" 팀을 삭제하시겠습니까?\n팀원 및 초대 코드가 모두 삭제됩니다.`)) return
     await supabase.from('teams').delete().eq('id', teamId)
-    navigate('/')
+    navigate('/', { state: { tab: 'team' } })
   }
 
   const handleRevokeCode = async () => {

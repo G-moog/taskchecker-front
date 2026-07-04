@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useTeams } from '../hooks/useTeams'
 import { useChecklists } from '../hooks/useChecklists'
@@ -12,7 +12,8 @@ type Tab = 'personal' | 'team'
 export default function HomePage() {
   const { user, signOut } = useAuth()
   const { teams, createTeam } = useTeams(user?.id)
-  const [tab, setTab] = useState<Tab>('personal')
+  const location = useLocation()
+  const [tab, setTab] = useState<Tab>((location.state as { tab?: Tab } | null)?.tab ?? 'personal')
   const [selectedTeamId, setSelectedTeamId] = useState<string>('')
   const [showTeamDropdown, setShowTeamDropdown] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
