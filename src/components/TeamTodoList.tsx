@@ -33,6 +33,8 @@ export function TeamTodoList({ teamId }: { teamId: string }) {
   const [notifyInput, setNotifyInput] = useState('')
   const [savingNotify, setSavingNotify] = useState(false)
   const [showCustomTime, setShowCustomTime] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [savingTitle, setSavingTitle] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 300, tolerance: 5 } }),
@@ -134,7 +136,18 @@ export function TeamTodoList({ teamId }: { teamId: string }) {
       setNotifyInput('')
     }
     setShowCustomTime(false)
+    setEditTitle(todo.title)
     setSheetTodo(todo)
+  }
+
+  const handleSaveTitle = async () => {
+    if (!sheetTodo || !editTitle.trim()) return
+    setSavingTitle(true)
+    const title = editTitle.trim()
+    await supabase.from('todos').update({ title }).eq('id', sheetTodo.id)
+    setTodos((prev) => prev.map((t) => t.id === sheetTodo.id ? { ...t, title } : t))
+    setSheetTodo((prev) => prev ? { ...prev, title } : prev)
+    setSavingTitle(false)
   }
 
   const handleQuickNotify = async (minutes: number) => {
@@ -266,7 +279,24 @@ export function TeamTodoList({ teamId }: { teamId: string }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: T.border }} />
-            <p className="text-sm font-semibold mb-4" style={{ color: T.text }}>"{sheetTodo.title}"</p>
+            {/* 제목 편집 */}
+            <div className="flex gap-2 mb-4">
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
+                className="flex-1 px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: T.surface2, color: T.text, border: `1px solid ${T.border}` }}
+              />
+              <button
+                onClick={handleSaveTitle}
+                disabled={savingTitle || !editTitle.trim() || editTitle.trim() === sheetTodo.title}
+                className="px-3 py-2 rounded-lg text-sm font-medium flex-shrink-0"
+                style={{ background: T.accent, color: '#fff', opacity: (savingTitle || !editTitle.trim() || editTitle.trim() === sheetTodo.title) ? 0.4 : 1 }}
+              >
+                수정
+              </button>
+            </div>
 
             {/* 알림 설정 */}
             <div className="rounded-xl p-3 mb-5" style={{ background: T.surface2, border: `1px solid ${T.border}` }}>
