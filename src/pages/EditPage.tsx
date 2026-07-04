@@ -172,7 +172,7 @@ export default function EditPage() {
   return (
     <div className="min-h-screen" style={{ background: T.bg }}>
       <div className="px-4 py-3 flex items-center justify-between" style={{ background: T.surface, borderBottom: `1px solid ${T.border}` }}>
-        <button onClick={() => navigate('/')} className="text-sm" style={{ color: T.muted }}>취소</button>
+        <button onClick={() => navigate('/', { state: ownerType === 'team' ? { tab: 'team', teamId: ownerId } : { tab: 'personal' } })} className="text-sm" style={{ color: T.muted }}>취소</button>
         <h1 className="text-base font-semibold" style={{ color: T.text }}>{isNew ? '새 체크리스트' : '편집'}</h1>
         <button onClick={handleSave} disabled={saving || !title.trim()} className="text-sm font-medium"
           style={{ color: saving || !title.trim() ? T.muted : T.accent }}>
