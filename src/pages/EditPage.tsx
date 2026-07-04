@@ -33,6 +33,7 @@ export default function EditPage() {
   const [localItems, setLocalItems] = useState<ChecklistItem[]>([])
   const [newLabel, setNewLabel] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [customOpen, setCustomOpen] = useState(false)
   const [customHours, setCustomHours] = useState(0)
   const [customMinutes, setCustomMinutes] = useState(30)
@@ -86,7 +87,13 @@ export default function EditPage() {
         .select()
         .single()
 
-      if (!error && cl && localItems.length > 0) {
+      if (error) {
+        setSaveError(`저장 실패: ${error.message} (code: ${error.code})`)
+        setSaving(false)
+        return
+      }
+
+      if (cl && localItems.length > 0) {
         await supabase.from('checklist_items').insert(
           localItems.map((item, idx) => ({
             checklist_id: cl.id,
@@ -179,6 +186,9 @@ export default function EditPage() {
           {saving ? '저장 중...' : '저장'}
         </button>
       </div>
+      {saveError && (
+        <div className="px-4 py-2 text-xs" style={{ background: '#ff000022', color: '#ff6b6b' }}>{saveError}</div>
+      )}
 
       <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
         {/* 제목 */}
