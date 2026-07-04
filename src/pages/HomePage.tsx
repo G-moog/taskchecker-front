@@ -55,14 +55,25 @@ export default function HomePage() {
       {/* 팀 드롭다운 */}
       {tab === 'team' && (
         <div className="px-4 py-2 relative" style={{ background: T.surface, borderBottom: `1px solid ${T.border}` }}>
-          <button
-            onClick={() => setShowTeamDropdown(!showTeamDropdown)}
-            className="flex items-center gap-2 text-sm font-medium"
-            style={{ color: T.text }}
-          >
-            <span>{selectedTeam?.name ?? '팀을 선택하세요'}</span>
-            <span style={{ color: T.muted }}>▾</span>
-          </button>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setShowTeamDropdown(!showTeamDropdown)}
+              className="flex items-center gap-2 text-sm font-medium"
+              style={{ color: T.text }}
+            >
+              <span>{selectedTeam?.name ?? '팀을 선택하세요'}</span>
+              <span style={{ color: T.muted }}>▾</span>
+            </button>
+            {selectedTeamId && (
+              <button
+                onClick={() => navigate(`/team/${selectedTeamId}/settings`)}
+                className="text-xs px-2 py-1 rounded-lg"
+                style={{ color: T.muted, border: `1px solid ${T.border}` }}
+              >
+                팀 설정
+              </button>
+            )}
+          </div>
           {showTeamDropdown && (
             <div className="absolute top-full left-0 right-0 z-10 shadow-2xl" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
               {teams.map((team) => (
