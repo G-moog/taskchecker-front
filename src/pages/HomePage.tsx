@@ -4,12 +4,13 @@ import { useAuth } from '../hooks/useAuth'
 import { useTeams } from '../hooks/useTeams'
 import { useChecklists } from '../hooks/useChecklists'
 import { Sidebar } from '../components/Sidebar'
+import { TeamStatusTab } from '../components/TeamStatusTab'
 import { supabase } from '../lib/supabase'
 import { T } from '../theme'
 import type { Checklist, Todo } from '../types/database'
 
 type Tab = 'personal' | 'team'
-type TeamSubTab = 'checklist' | 'todo'
+type TeamSubTab = 'checklist' | 'todo' | 'status'
 
 export default function HomePage() {
   const { user, signOut } = useAuth()
@@ -215,7 +216,7 @@ export default function HomePage() {
       {/* 팀 서브탭 */}
       {showTeamSubTabs && (
         <div className="flex px-4 gap-4" style={{ background: T.bg, borderBottom: `1px solid ${T.border}` }}>
-          {([['checklist', '체크리스트'], ['todo', '할 일']] as [TeamSubTab, string][]).map(([key, label]) => (
+          {([['checklist', '체크리스트'], ['todo', '할 일'], ['status', '현황']] as [TeamSubTab, string][]).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTeamSubTab(key)}
@@ -232,7 +233,9 @@ export default function HomePage() {
       )}
 
       {/* 콘텐츠 */}
-      {showTeamSubTabs && teamSubTab === 'todo' ? (
+      {showTeamSubTabs && teamSubTab === 'status' ? (
+        <TeamStatusTab teamId={selectedTeamId} />
+      ) : showTeamSubTabs && teamSubTab === 'todo' ? (
         /* 팀 할 일 목록 */
         <div className="px-4 py-4 max-w-lg mx-auto">
           <div className="flex gap-2 mb-4">
@@ -299,7 +302,7 @@ export default function HomePage() {
       )}
 
       {/* + 버튼 (체크리스트 서브탭에서만) */}
-      {(tab === 'personal' || (selectedTeamId && teamSubTab === 'checklist')) && (
+      {(tab === 'personal' || (selectedTeamId && (teamSubTab === 'checklist'))) && (
         <div className="fixed bottom-6 right-6">
           <button
             onClick={handleNewChecklist}
