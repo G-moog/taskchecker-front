@@ -24,9 +24,16 @@ export default function HomePage() {
   const { checklists, loading, deleteChecklist } = useChecklists(ownerId, tab)
   const selectedTeam = teams.find((t) => t.id === selectedTeamId)
 
+  const [teamNameError, setTeamNameError] = useState('')
+
   const handleCreateTeam = async () => {
     if (!newTeamName.trim()) return
-    const { data } = await createTeam(newTeamName.trim())
+    setTeamNameError('')
+    const { data, error } = await createTeam(newTeamName.trim())
+    if (error?.code === '23505') {
+      setTeamNameError('이미 사용 중인 팀 이름입니다.')
+      return
+    }
     if (data) { setSelectedTeamId(data.id); setTab('team') }
     setNewTeamName('')
     setShowTeamDropdown(false)
@@ -100,14 +107,17 @@ export default function HomePage() {
                 <div className="px-4 py-2 flex gap-2">
                   <input
                     value={newTeamName}
-                    onChange={(e) => setNewTeamName(e.target.value)}
+                    onChange={(e) => { setNewTeamName(e.target.value); setTeamNameError('') }}
                     placeholder="새 팀 이름"
                     className="flex-1 rounded px-2 py-1 text-sm outline-none"
-                    style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
+                    style={{ background: T.surface2, border: `1px solid ${teamNameError ? T.danger : T.border}`, color: T.text }}
                     onKeyDown={(e) => e.key === 'Enter' && handleCreateTeam()}
                   />
                   <button onClick={handleCreateTeam} className="text-sm font-medium" style={{ color: T.accent }}>만들기</button>
                 </div>
+                {teamNameError && (
+                  <p className="px-4 pb-2 text-xs" style={{ color: T.danger }}>{teamNameError}</p>
+                )}
               </div>
             </div>
           )}
