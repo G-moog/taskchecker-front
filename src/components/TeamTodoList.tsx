@@ -35,6 +35,7 @@ export function TeamTodoList({ teamId }: { teamId: string }) {
   const [showCustomTime, setShowCustomTime] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [savingTitle, setSavingTitle] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'unlinked' | 'linked'>('unlinked')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { delay: 300, tolerance: 5 } }),
@@ -216,8 +217,13 @@ export function TeamTodoList({ teamId }: { teamId: string }) {
     setSheetTodo(null)
   }
 
-  const pending = todos.filter((t) => !t.done)
-  const done = todos.filter((t) => t.done)
+  const filteredTodos = todos.filter((t) => {
+    if (filter === 'unlinked') return t.checklists.length === 0
+    if (filter === 'linked') return t.checklists.length > 0
+    return true
+  })
+  const pending = filteredTodos.filter((t) => !t.done)
+  const done = filteredTodos.filter((t) => t.done)
 
   return (
     <div className="px-4 py-4 max-w-lg mx-auto">
@@ -238,12 +244,32 @@ export function TeamTodoList({ teamId }: { teamId: string }) {
         </button>
       </div>
 
+      {/* 필터 탭 */}
+      <div className="flex gap-2 mb-4">
+        {([['all', '전체'], ['unlinked', '미등록'], ['linked', '등록']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+            style={{
+              background: filter === key ? T.accent : T.surface2,
+              color: filter === key ? '#fff' : T.muted,
+              border: `1px solid ${filter === key ? T.accent : T.border}`,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="text-center text-sm py-8" style={{ color: T.muted }}>불러오는 중...</div>
       ) : (
         <>
           {pending.length === 0 && done.length === 0 && (
-            <div className="text-center text-sm py-8" style={{ color: T.muted }}>팀 할 일을 추가해보세요</div>
+            <div className="text-center text-sm py-8" style={{ color: T.muted }}>
+              {filter === 'unlinked' ? '미등록 할 일이 없습니다' : filter === 'linked' ? '등록된 할 일이 없습니다' : '팀 할 일을 추가해보세요'}
+            </div>
           )}
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
