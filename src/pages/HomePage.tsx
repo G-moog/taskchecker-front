@@ -13,8 +13,9 @@ export default function HomePage() {
   const { user, signOut } = useAuth()
   const { teams, createTeam } = useTeams(user?.id)
   const location = useLocation()
-  const [tab, setTab] = useState<Tab>((location.state as { tab?: Tab } | null)?.tab ?? 'personal')
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('')
+  const locationState = location.state as { tab?: Tab; teamId?: string } | null
+  const [tab, setTab] = useState<Tab>(locationState?.tab ?? 'personal')
+  const [selectedTeamId, setSelectedTeamId] = useState<string>(locationState?.teamId ?? '')
   const [showTeamDropdown, setShowTeamDropdown] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)

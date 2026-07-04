@@ -107,7 +107,7 @@ export default function EditPage() {
     }
 
     setSaving(false)
-    navigate('/')
+    navigate('/', { state: ownerType === 'team' ? { tab: 'team', teamId: ownerId } : { tab: 'personal' } })
   }
 
   const handleAddItem = async (label?: string, todoId?: string) => {
