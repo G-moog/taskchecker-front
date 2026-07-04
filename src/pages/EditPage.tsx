@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useChecklistDetail } from '../hooks/useChecklistDetail'
 import { T } from '../theme'
 import type { ChecklistItem, RepeatType, Todo } from '../types/database'
+import { useSettings } from '../hooks/useSettings'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -15,6 +16,7 @@ export default function EditPage() {
   const { id } = useParams<{ id: string }>()
   const [searchParams] = useSearchParams()
   const { user } = useAuth()
+  const { settings } = useSettings()
   const navigate = useNavigate()
 
   const isNew = id === 'new'
@@ -239,6 +241,25 @@ export default function EditPage() {
         <div className="rounded-xl px-4 py-3 space-y-3" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
           <div>
             <label className="block text-xs mb-1" style={{ color: T.muted }}>알림 시간 (선택)</label>
+            {settings.checklistQuickTimes.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {settings.checklistQuickTimes.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setNotifyTime(t)}
+                    className="px-3 py-1 rounded-full text-xs font-medium"
+                    style={{
+                      background: notifyTime === t ? T.accent : T.surface2,
+                      color: notifyTime === t ? '#fff' : T.muted,
+                      border: `1px solid ${notifyTime === t ? T.accent : T.border}`,
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <input
                 type="number" min={0} max={23} placeholder="시"

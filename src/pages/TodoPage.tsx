@@ -7,6 +7,7 @@ import { Sidebar } from '../components/Sidebar'
 import { supabase } from '../lib/supabase'
 import { T } from '../theme'
 import type { Todo, Checklist } from '../types/database'
+import { useSettings } from '../hooks/useSettings'
 
 interface TodoWithChecklists extends Todo {
   checklists: string[]
@@ -20,6 +21,7 @@ export default function TodoPage() {
   const [loading, setLoading] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const { settings } = useSettings()
   const [filter, setFilter] = useState<'all' | 'unlinked' | 'linked'>('unlinked')
   const [sheetTodo, setSheetTodo] = useState<TodoWithChecklists | null>(null)
   const [checklists, setChecklists] = useState<Checklist[]>([])
@@ -323,19 +325,24 @@ export default function TodoPage() {
               </div>
 
               {/* 빠른 시간 버튼 */}
-              <div className="grid grid-cols-4 gap-2 mb-2">
-                {([['5분', 5], ['10분', 10], ['30분', 30], ['1시간', 60]] as const).map(([label, min]) => (
-                  <button
-                    key={label}
-                    onClick={() => handleQuickNotify(min)}
-                    disabled={savingNotify}
-                    className="py-2 rounded-lg text-xs font-medium"
-                    style={{ background: T.surface, color: T.accent, border: `1px solid ${T.accent}` }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              {settings.todoQuickTimes.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {settings.todoQuickTimes.map((min) => {
+                    const label = min < 60 ? `${min}분` : min === 60 ? '1시간' : `${Math.floor(min / 60)}시간 ${min % 60 ? `${min % 60}분` : ''}`
+                    return (
+                      <button
+                        key={min}
+                        onClick={() => handleQuickNotify(min)}
+                        disabled={savingNotify}
+                        className="px-3 py-2 rounded-lg text-xs font-medium"
+                        style={{ background: T.surface, color: T.accent, border: `1px solid ${T.accent}` }}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
               {/* 직접 설정 토글 */}
               <button
