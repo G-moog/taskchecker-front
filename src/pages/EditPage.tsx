@@ -34,6 +34,8 @@ export default function EditPage() {
   const [newLabel, setNewLabel] = useState('')
   const [newItemType, setNewItemType] = useState<'check' | 'measure'>('check')
   const [newUnit, setNewUnit] = useState('')
+  const [newOptions, setNewOptions] = useState<string[]>([])
+  const [newOptionInput, setNewOptionInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [customOpen, setCustomOpen] = useState(false)
   const [customHours, setCustomHours] = useState(0)
@@ -99,6 +101,7 @@ export default function EditPage() {
             todo_id: item.todo_id ?? null,
             item_type: item.item_type ?? 'check',
             unit: item.unit ?? null,
+            options: item.options ?? null,
           }))
         )
       }
@@ -123,6 +126,7 @@ export default function EditPage() {
     if (!text) return
     const itemType = todoId ? 'check' : newItemType
     const unit = itemType === 'measure' ? newUnit.trim() || null : null
+    const options = itemType === 'measure' && newOptions.length > 0 ? newOptions : null
 
     if (isNew) {
       const tempItem: ChecklistItem = {
@@ -133,17 +137,18 @@ export default function EditPage() {
         todo_id: todoId ?? null,
         item_type: itemType,
         unit,
+        options,
         created_at: '',
         updated_at: '',
       }
       setLocalItems((prev) => [...prev, tempItem])
-      if (!label) { setNewLabel(''); setNewUnit('') }
+      if (!label) { setNewLabel(''); setNewUnit(''); setNewOptions([]) }
     } else {
       const { data, error } = await supabase
         .from('checklist_items')
-        .insert({ checklist_id: id!, label: text, sort_order: localItems.length, todo_id: todoId ?? null, item_type: itemType, unit })
+        .insert({ checklist_id: id!, label: text, sort_order: localItems.length, todo_id: todoId ?? null, item_type: itemType, unit, options })
         .select().single()
-      if (!error && data) { setLocalItems((prev) => [...prev, data]); if (!label) { setNewLabel(''); setNewUnit('') } }
+      if (!error && data) { setLocalItems((prev) => [...prev, data]); if (!label) { setNewLabel(''); setNewUnit(''); setNewOptions([]) } }
     }
   }
 
@@ -407,10 +412,50 @@ export default function EditPage() {
               </button>
             </div>
             {newItemType === 'measure' && (
-              <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)}
-                placeholder="단위 입력 (예: L, %, cm)"
-                className="w-full text-sm outline-none bg-transparent"
-                style={{ color: T.muted }} />
+              <div className="space-y-2 pt-1" style={{ borderTop: `1px solid ${T.border}` }}>
+                <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)}
+                  placeholder="단위 입력 (예: L, %, cm)"
+                  className="w-full text-sm outline-none bg-transparent"
+                  style={{ color: T.muted }} />
+                <div>
+                  <p className="text-xs mb-1.5" style={{ color: T.muted }}>
+                    선택 보기 <span style={{ color: T.border }}>(없으면 직접 입력)</span>
+                  </p>
+                  {newOptions.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-1.5">
+                      {newOptions.map((opt, i) => (
+                        <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
+                          style={{ background: T.accentDim, color: T.accent, border: `1px solid ${T.accentBorder}` }}>
+                          {opt}
+                          <button onClick={() => setNewOptions((prev) => prev.filter((_, j) => j !== i))}
+                            style={{ color: T.accent, lineHeight: 1 }}>×</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2 items-center">
+                    <input value={newOptionInput}
+                      onChange={(e) => setNewOptionInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newOptionInput.trim()) {
+                          setNewOptions((prev) => [...prev, newOptionInput.trim()])
+                          setNewOptionInput('')
+                        }
+                      }}
+                      placeholder="보기 추가 (예: 정상)"
+                      className="flex-1 text-sm outline-none bg-transparent"
+                      style={{ color: T.text }} />
+                    <button
+                      onClick={() => {
+                        if (!newOptionInput.trim()) return
+                        setNewOptions((prev) => [...prev, newOptionInput.trim()])
+                        setNewOptionInput('')
+                      }}
+                      className="text-xs font-medium flex-shrink-0"
+                      style={{ color: T.accent }}>+ 추가</button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -465,13 +510,23 @@ function SortableItem({ item, onDelete }: { item: ChecklistItem; onDelete: (id: 
     <div ref={setNodeRef} style={{ ...style, borderBottom: `1px solid ${T.border}` }} className="flex items-center gap-3 px-4 py-3 last:border-0">
       <span {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing select-none" style={{ color: T.border }}>⠿</span>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm" style={{ color: T.text }}>{item.label}</span>
           {item.unit && <span className="text-xs" style={{ color: T.muted }}>({item.unit})</span>}
           {item.item_type === 'measure' && (
             <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: T.accentDim, color: T.accent }}>측정</span>
           )}
         </div>
+        {item.options && item.options.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {item.options.map((opt, i) => (
+              <span key={i} className="text-xs px-1.5 py-0.5 rounded-full"
+                style={{ background: T.surface2, color: T.muted, border: `1px solid ${T.border}` }}>
+                {opt}
+              </span>
+            ))}
+          </div>
+        )}
         {item.todo_id && (
           <span className="text-xs" style={{ color: T.accent }}>할 일 목록에서 추가됨</span>
         )}

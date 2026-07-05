@@ -51,6 +51,7 @@ export interface ChecklistItem {
   todo_id: string | null
   item_type: 'check' | 'measure'
   unit: string | null
+  options: string[] | null
   created_at: string
   updated_at: string
 }

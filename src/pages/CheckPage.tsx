@@ -83,26 +83,51 @@ export default function CheckPage() {
                   )}
                 </div>
                 {!isOnceAndDone && (
-                  <div className="flex gap-2 items-center">
-                    <input
-                      value={measureInputs[item.id] ?? ''}
-                      onChange={(e) => setMeasureInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      onKeyDown={(e) => e.key === 'Enter' && handleMeasureSave(item.id)}
-                      placeholder={isDone ? '값 수정...' : '값 입력...'}
-                      className="flex-1 text-sm outline-none rounded-lg px-3 py-1.5"
-                      style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
-                    />
-                    <button
-                      onClick={() => handleMeasureSave(item.id)}
-                      disabled={!measureInputs[item.id]?.trim()}
-                      className="text-sm font-medium px-3 py-1.5 rounded-lg"
-                      style={{
-                        background: measureInputs[item.id]?.trim() ? T.accent : T.surface2,
-                        color: measureInputs[item.id]?.trim() ? '#0d0d12' : T.muted,
-                      }}>
-                      저장
-                    </button>
-                  </div>
+                  item.options && item.options.length > 0 ? (
+                    // 선택 보기 버튼
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.options.map((opt) => {
+                        const isSelected = measureInputs[item.id] === opt
+                        return (
+                          <button key={opt}
+                            onClick={async () => {
+                              setMeasureInputs((prev) => ({ ...prev, [item.id]: opt }))
+                              if (user) await saveMeasureValue(item.id, user.id, opt)
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-sm font-medium"
+                            style={{
+                              background: (status?.value === opt) ? T.accent : isSelected ? T.accentDim : T.surface2,
+                              color: (status?.value === opt) ? '#0d0d12' : isSelected ? T.accent : T.muted,
+                              border: `1px solid ${(status?.value === opt || isSelected) ? T.accentBorder : T.border}`,
+                            }}>
+                            {opt}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    // 직접 입력
+                    <div className="flex gap-2 items-center">
+                      <input
+                        value={measureInputs[item.id] ?? ''}
+                        onChange={(e) => setMeasureInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleMeasureSave(item.id)}
+                        placeholder={isDone ? '값 수정...' : '값 입력...'}
+                        className="flex-1 text-sm outline-none rounded-lg px-3 py-1.5"
+                        style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
+                      />
+                      <button
+                        onClick={() => handleMeasureSave(item.id)}
+                        disabled={!measureInputs[item.id]?.trim()}
+                        className="text-sm font-medium px-3 py-1.5 rounded-lg"
+                        style={{
+                          background: measureInputs[item.id]?.trim() ? T.accent : T.surface2,
+                          color: measureInputs[item.id]?.trim() ? '#0d0d12' : T.muted,
+                        }}>
+                        저장
+                      </button>
+                    </div>
+                  )
                 )}
               </div>
             )
