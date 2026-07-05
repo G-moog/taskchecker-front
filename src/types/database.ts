@@ -82,6 +82,39 @@ export interface Todo {
   created_at: string
 }
 
+export interface MeasurementForm {
+  id: string
+  title: string
+  owner_type: OwnerType
+  owner_id: string
+  notify_weekday: number | null
+  notify_time: string | null
+  created_by: string
+  created_at: string
+}
+
+export interface MeasurementField {
+  id: string
+  form_id: string
+  label: string
+  unit: string | null
+  sort_order: number
+}
+
+export interface MeasurementEntry {
+  id: string
+  form_id: string
+  submitted_at: string
+  submitted_by: string
+}
+
+export interface MeasurementValue {
+  id: string
+  entry_id: string
+  field_id: string
+  value: string
+}
+
 export interface UserPushToken {
   id: string
   user_id: string

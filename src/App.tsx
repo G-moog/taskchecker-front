@@ -10,6 +10,9 @@ import TeamSettingsPage from './pages/TeamSettingsPage'
 import MyPage from './pages/MyPage'
 import TodoPage from './pages/TodoPage'
 import SettingsPage from './pages/SettingsPage'
+import MeasurementEditPage from './pages/MeasurementEditPage'
+import MeasurementInputPage from './pages/MeasurementInputPage'
+import MeasurementHistoryPage from './pages/MeasurementHistoryPage'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -39,6 +42,10 @@ function AppRoutes() {
       <Route path="/checklist/:id/edit" element={<EditPage />} />
       <Route path="/join-team" element={<JoinTeamPage />} />
       <Route path="/team/:teamId/settings" element={<TeamSettingsPage />} />
+      <Route path="/measurement/new/edit" element={<MeasurementEditPage />} />
+      <Route path="/measurement/:id/edit" element={<MeasurementEditPage />} />
+      <Route path="/measurement/:id/input" element={<MeasurementInputPage />} />
+      <Route path="/measurement/:id/history" element={<MeasurementHistoryPage />} />
       <Route path="/todos" element={<TodoPage />} />
       <Route path="/mypage" element={<MyPage />} />
       <Route path="/settings" element={<SettingsPage />} />
