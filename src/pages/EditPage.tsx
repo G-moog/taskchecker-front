@@ -37,6 +37,13 @@ export default function EditPage() {
   const [newOptions, setNewOptions] = useState<string[]>([])
   const [newOptionInput, setNewOptionInput] = useState('')
   const [newHasNote, setNewHasNote] = useState(false)
+  const [editingItem, setEditingItem] = useState<ChecklistItem | null>(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [editItemType, setEditItemType] = useState<'check' | 'measure'>('check')
+  const [editUnit, setEditUnit] = useState('')
+  const [editOptions, setEditOptions] = useState<string[]>([])
+  const [editOptionInput, setEditOptionInput] = useState('')
+  const [editHasNote, setEditHasNote] = useState(false)
   const [saving, setSaving] = useState(false)
   const [customOpen, setCustomOpen] = useState(false)
   const [customHours, setCustomHours] = useState(0)
@@ -154,6 +161,30 @@ export default function EditPage() {
         .select().single()
       if (!error && data) { setLocalItems((prev) => [...prev, data]); if (!label) { setNewLabel(''); setNewUnit(''); setNewOptions([]); setNewHasNote(false) } }
     }
+  }
+
+  const handleOpenEdit = (item: ChecklistItem) => {
+    setEditingItem(item)
+    setEditLabel(item.label)
+    setEditItemType(item.item_type ?? 'check')
+    setEditUnit(item.unit ?? '')
+    setEditOptions(item.options ?? [])
+    setEditOptionInput('')
+    setEditHasNote(item.has_note ?? false)
+  }
+
+  const handleUpdateItem = async () => {
+    if (!editingItem || !editLabel.trim()) return
+    const unit = editItemType === 'measure' ? editUnit.trim() || null : null
+    const options = editItemType === 'measure' && editOptions.length > 0 ? editOptions : null
+    const has_note = editItemType === 'measure' ? editHasNote : false
+    const updated: ChecklistItem = { ...editingItem, label: editLabel.trim(), item_type: editItemType, unit, options, has_note }
+
+    if (!editingItem.id.startsWith('temp-')) {
+      await supabase.from('checklist_items').update({ label: editLabel.trim(), item_type: editItemType, unit, options, has_note }).eq('id', editingItem.id)
+    }
+    setLocalItems((prev) => prev.map((i) => i.id === editingItem.id ? updated : i))
+    setEditingItem(null)
   }
 
   const handleDeleteItem = async (itemId: string) => {
@@ -386,7 +417,7 @@ export default function EditPage() {
           </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={localItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-              {localItems.map((item) => <SortableItem key={item.id} item={item} onDelete={handleDeleteItem} />)}
+              {localItems.map((item) => <SortableItem key={item.id} item={item} onEdit={handleOpenEdit} onDelete={handleDeleteItem} />)}
             </SortableContext>
           </DndContext>
           <div className="px-4 py-3 space-y-2" style={{ borderTop: localItems.length > 0 ? `1px solid ${T.border}` : undefined }}>
@@ -516,17 +547,110 @@ export default function EditPage() {
           </div>
         </div>
       )}
+
+      {/* 항목 편집 바텀 시트 */}
+      {editingItem && (
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => setEditingItem(null)}>
+          <div className="w-full rounded-t-2xl overflow-hidden max-h-[80vh] flex flex-col"
+            style={{ background: T.surface }} onClick={(e) => e.stopPropagation()}>
+            <div className="px-4 py-3 flex items-center justify-between flex-shrink-0"
+              style={{ borderBottom: `1px solid ${T.border}` }}>
+              <button onClick={() => setEditingItem(null)} className="text-sm" style={{ color: T.muted }}>취소</button>
+              <span className="text-sm font-semibold" style={{ color: T.text }}>항목 편집</span>
+              <button onClick={handleUpdateItem} className="text-sm font-medium" style={{ color: T.accent }}>저장</button>
+            </div>
+            <div className="overflow-y-auto px-4 py-4 space-y-4">
+              {/* 타입 선택 */}
+              <div className="flex gap-2">
+                {(['check', 'measure'] as const).map((t) => (
+                  <button key={t} onClick={() => setEditItemType(t)}
+                    className="px-3 py-1 rounded-lg text-xs font-medium"
+                    style={{
+                      background: editItemType === t ? T.accentDim : T.surface2,
+                      color: editItemType === t ? T.accent : T.muted,
+                      border: `1px solid ${editItemType === t ? T.accentBorder : T.border}`,
+                    }}>
+                    {t === 'check' ? '☑ 체크' : '📏 측정'}
+                  </button>
+                ))}
+              </div>
+              {/* 항목명 */}
+              <div className="rounded-xl px-4 py-3" style={{ background: T.surface2, border: `1px solid ${T.border}` }}>
+                <label className="block text-xs mb-1" style={{ color: T.muted }}>항목명</label>
+                <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)}
+                  className="w-full text-sm outline-none bg-transparent" style={{ color: T.text }}
+                  autoFocus />
+              </div>
+              {editItemType === 'measure' && (
+                <>
+                  {/* 단위 */}
+                  <div className="rounded-xl px-4 py-3" style={{ background: T.surface2, border: `1px solid ${T.border}` }}>
+                    <label className="block text-xs mb-1" style={{ color: T.muted }}>단위 (선택)</label>
+                    <input value={editUnit} onChange={(e) => setEditUnit(e.target.value)}
+                      placeholder="예: L, %, cm"
+                      className="w-full text-sm outline-none bg-transparent" style={{ color: T.text }} />
+                  </div>
+                  {/* 선택 보기 */}
+                  <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: T.surface2, border: `1px solid ${T.border}` }}>
+                    <label className="block text-xs" style={{ color: T.muted }}>선택 보기</label>
+                    {editOptions.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {editOptions.map((opt, i) => (
+                          <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
+                            style={{ background: T.accentDim, color: T.accent, border: `1px solid ${T.accentBorder}` }}>
+                            {opt}
+                            <button onClick={() => setEditOptions((prev) => prev.filter((_, j) => j !== i))}
+                              style={{ color: T.accent, lineHeight: 1 }}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2 items-center">
+                      <input value={editOptionInput} onChange={(e) => setEditOptionInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && editOptionInput.trim()) {
+                            setEditOptions((prev) => [...prev, editOptionInput.trim()])
+                            setEditOptionInput('')
+                          }
+                        }}
+                        placeholder="보기 추가"
+                        className="flex-1 text-sm outline-none bg-transparent" style={{ color: T.text }} />
+                      <button onClick={() => {
+                        if (!editOptionInput.trim()) return
+                        setEditOptions((prev) => [...prev, editOptionInput.trim()])
+                        setEditOptionInput('')
+                      }} className="text-xs font-medium flex-shrink-0" style={{ color: T.accent }}>+ 추가</button>
+                    </div>
+                  </div>
+                  {/* 비고란 토글 */}
+                  <button onClick={() => setEditHasNote((v) => !v)}
+                    className="flex items-center gap-2 text-xs"
+                    style={{ color: editHasNote ? T.accent : T.muted }}>
+                    <span className="w-8 h-4 rounded-full flex items-center transition-all px-0.5"
+                      style={{ background: editHasNote ? T.accent : T.border }}>
+                      <span className="w-3 h-3 rounded-full bg-white transition-all"
+                        style={{ transform: editHasNote ? 'translateX(16px)' : 'translateX(0)' }} />
+                    </span>
+                    비고란 추가
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function SortableItem({ item, onDelete }: { item: ChecklistItem; onDelete: (id: string) => void }) {
+function SortableItem({ item, onEdit, onDelete }: { item: ChecklistItem; onEdit: (item: ChecklistItem) => void; onDelete: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
   return (
     <div ref={setNodeRef} style={{ ...style, borderBottom: `1px solid ${T.border}` }} className="flex items-center gap-3 px-4 py-3 last:border-0">
       <span {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing select-none" style={{ color: T.border }}>⠿</span>
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onEdit(item)}>
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-sm" style={{ color: T.text }}>{item.label}</span>
           {item.unit && <span className="text-xs" style={{ color: T.muted }}>({item.unit})</span>}
