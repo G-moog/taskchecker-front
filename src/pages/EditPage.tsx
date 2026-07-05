@@ -400,18 +400,18 @@ export default function EditPage() {
                 onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
                 placeholder="항목명..." className="flex-1 text-sm outline-none bg-transparent"
                 style={{ color: T.text }} />
-              {newItemType === 'measure' && (
-                <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-                  placeholder="단위" className="w-16 text-sm outline-none bg-transparent text-right"
-                  style={{ color: T.muted }} />
-              )}
-              <button onClick={() => handleAddItem()} className="text-sm font-medium" style={{ color: T.accent }}>추가</button>
-              <button onClick={openTodoPicker} className="text-sm font-medium px-2 py-1 rounded-lg"
+              <button onClick={() => handleAddItem()} className="text-sm font-medium flex-shrink-0" style={{ color: T.accent }}>추가</button>
+              <button onClick={openTodoPicker} className="text-sm font-medium flex-shrink-0 px-2 py-1 rounded-lg"
                 style={{ color: T.accent, background: T.accentDim, border: `1px solid ${T.accentBorder}` }}>
                 할 일에서
               </button>
             </div>
+            {newItemType === 'measure' && (
+              <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)}
+                placeholder="단위 입력 (예: L, %, cm)"
+                className="w-full text-sm outline-none bg-transparent"
+                style={{ color: T.muted }} />
+            )}
           </div>
         </div>
       </div>
