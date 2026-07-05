@@ -19,7 +19,7 @@ export default function EditPage() {
   const { settings } = useSettings()
   const navigate = useNavigate()
 
-  const isNew = id === 'new'
+  const isNew = !id || id === 'new'
   const ownerType = searchParams.get('ownerType') as 'personal' | 'team' | null
   const ownerId = searchParams.get('ownerId') ?? ''
 
