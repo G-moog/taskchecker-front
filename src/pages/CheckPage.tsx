@@ -31,7 +31,7 @@ export default function CheckPage() {
       <div className="px-4 py-3 flex items-center justify-between" style={{ background: T.surface, borderBottom: `1px solid ${T.border}` }}>
         <button onClick={() => navigate(-1)} className="text-sm" style={{ color: T.muted }}>← 뒤로</button>
         <h1 className="text-base font-semibold" style={{ color: T.text }}>{checklist.title}</h1>
-        <button onClick={() => navigate(`/checklist/${id}/edit`)} className="text-sm" style={{ color: T.accent }}>편집</button>
+        <button onClick={() => navigate(`/checklist/${id}/edit?ownerType=${checklist.owner_type}&ownerId=${checklist.owner_id}`)} className="text-sm" style={{ color: T.accent }}>편집</button>
       </div>
 
       {/* 진행률 */}
@@ -112,7 +112,7 @@ export default function CheckPage() {
                 </button>
               )}
               <button
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/', { state: checklist.owner_type === 'team' ? { tab: 'team', teamId: checklist.owner_id } : { tab: 'personal' } })}
                 className={`rounded-xl py-2.5 text-sm font-medium ${allChecked ? 'px-10' : 'flex-1'}`}
                 style={{ background: T.accent, color: '#0d0d12' }}
               >
