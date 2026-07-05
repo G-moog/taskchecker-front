@@ -36,6 +36,7 @@ export default function EditPage() {
   const [newUnit, setNewUnit] = useState('')
   const [newOptions, setNewOptions] = useState<string[]>([])
   const [newOptionInput, setNewOptionInput] = useState('')
+  const [newHasNote, setNewHasNote] = useState(false)
   const [saving, setSaving] = useState(false)
   const [customOpen, setCustomOpen] = useState(false)
   const [customHours, setCustomHours] = useState(0)
@@ -102,6 +103,7 @@ export default function EditPage() {
             item_type: item.item_type ?? 'check',
             unit: item.unit ?? null,
             options: item.options ?? null,
+            has_note: item.has_note ?? false,
           }))
         )
       }
@@ -127,6 +129,7 @@ export default function EditPage() {
     const itemType = todoId ? 'check' : newItemType
     const unit = itemType === 'measure' ? newUnit.trim() || null : null
     const options = itemType === 'measure' && newOptions.length > 0 ? newOptions : null
+    const has_note = itemType === 'measure' ? newHasNote : false
 
     if (isNew) {
       const tempItem: ChecklistItem = {
@@ -138,17 +141,18 @@ export default function EditPage() {
         item_type: itemType,
         unit,
         options,
+        has_note,
         created_at: '',
         updated_at: '',
       }
       setLocalItems((prev) => [...prev, tempItem])
-      if (!label) { setNewLabel(''); setNewUnit(''); setNewOptions([]) }
+      if (!label) { setNewLabel(''); setNewUnit(''); setNewOptions([]); setNewHasNote(false) }
     } else {
       const { data, error } = await supabase
         .from('checklist_items')
-        .insert({ checklist_id: id!, label: text, sort_order: localItems.length, todo_id: todoId ?? null, item_type: itemType, unit, options })
+        .insert({ checklist_id: id!, label: text, sort_order: localItems.length, todo_id: todoId ?? null, item_type: itemType, unit, options, has_note })
         .select().single()
-      if (!error && data) { setLocalItems((prev) => [...prev, data]); if (!label) { setNewLabel(''); setNewUnit(''); setNewOptions([]) } }
+      if (!error && data) { setLocalItems((prev) => [...prev, data]); if (!label) { setNewLabel(''); setNewUnit(''); setNewOptions([]); setNewHasNote(false) } }
     }
   }
 
@@ -455,6 +459,19 @@ export default function EditPage() {
                       style={{ color: T.accent }}>+ 추가</button>
                   </div>
                 </div>
+                {/* 비고란 토글 */}
+                <button
+                  onClick={() => setNewHasNote((v) => !v)}
+                  className="flex items-center gap-2 text-xs"
+                  style={{ color: newHasNote ? T.accent : T.muted }}>
+                  <span
+                    className="w-8 h-4 rounded-full flex items-center transition-all px-0.5"
+                    style={{ background: newHasNote ? T.accent : T.border }}>
+                    <span className="w-3 h-3 rounded-full bg-white transition-all"
+                      style={{ transform: newHasNote ? 'translateX(16px)' : 'translateX(0)' }} />
+                  </span>
+                  비고란 추가
+                </button>
               </div>
             )}
           </div>
@@ -515,6 +532,9 @@ function SortableItem({ item, onDelete }: { item: ChecklistItem; onDelete: (id: 
           {item.unit && <span className="text-xs" style={{ color: T.muted }}>({item.unit})</span>}
           {item.item_type === 'measure' && (
             <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: T.accentDim, color: T.accent }}>측정</span>
+          )}
+          {item.has_note && (
+            <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: T.surface2, color: T.muted, border: `1px solid ${T.border}` }}>비고</span>
           )}
         </div>
         {item.options && item.options.length > 0 && (

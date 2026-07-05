@@ -91,7 +91,7 @@ export function useChecklistDetail(checklistId: string | undefined) {
   }
 
   // measure 타입 항목 값 저장
-  const saveMeasureValue = async (itemId: string, userId: string, value: string) => {
+  const saveMeasureValue = async (itemId: string, userId: string, value: string, note?: string) => {
     if (!checklistId || !checklist || !value.trim()) return
 
     const today = todayString()
@@ -99,16 +99,18 @@ export function useChecklistDetail(checklistId: string | undefined) {
 
     if (checklist.repeat_type === 'once' && existing?.is_checked) return
 
+    const noteVal = note?.trim() || null
+
     if (existing) {
       const { error } = await supabase
         .from('checklist_item_status')
-        .update({ is_checked: true, value: value.trim(), checked_by: userId, checked_at: new Date().toISOString() })
+        .update({ is_checked: true, value: value.trim(), note: noteVal, checked_by: userId, checked_at: new Date().toISOString() })
         .eq('id', existing.id)
-      if (!error) setStatuses((prev) => prev.map((s) => s.id === existing.id ? { ...s, is_checked: true, value: value.trim() } : s))
+      if (!error) setStatuses((prev) => prev.map((s) => s.id === existing.id ? { ...s, is_checked: true, value: value.trim(), note: noteVal } : s))
     } else {
       const { data, error } = await supabase
         .from('checklist_item_status')
-        .insert({ item_id: itemId, checklist_id: checklistId, status_date: today, is_checked: true, value: value.trim(), checked_by: userId, checked_at: new Date().toISOString() })
+        .insert({ item_id: itemId, checklist_id: checklistId, status_date: today, is_checked: true, value: value.trim(), note: noteVal, checked_by: userId, checked_at: new Date().toISOString() })
         .select()
         .single()
       if (!error && data) setStatuses((prev) => [...prev, data])

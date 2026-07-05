@@ -52,6 +52,7 @@ export interface ChecklistItem {
   item_type: 'check' | 'measure'
   unit: string | null
   options: string[] | null
+  has_note: boolean
   created_at: string
   updated_at: string
 }
@@ -65,6 +66,7 @@ export interface ChecklistItemStatus {
   checked_by: string | null
   checked_at: string | null
   value: string | null
+  note: string | null
 }
 
 export interface ChecklistNotifyTarget {

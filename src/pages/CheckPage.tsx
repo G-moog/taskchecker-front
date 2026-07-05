@@ -12,6 +12,7 @@ export default function CheckPage() {
   const [showModal, setShowModal] = useState(false)
   // 측정 항목별 입력 중인 값 (itemId → value)
   const [measureInputs, setMeasureInputs] = useState<Record<string, string>>({})
+  const [noteInputs, setNoteInputs] = useState<Record<string, string>>({})
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>불러오는 중...</div>
   if (!checklist) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>체크리스트를 찾을 수 없습니다</div>
@@ -30,8 +31,10 @@ export default function CheckPage() {
   const handleMeasureSave = async (itemId: string) => {
     if (!user) return
     const val = measureInputs[itemId] ?? ''
-    await saveMeasureValue(itemId, user.id, val)
+    const note = noteInputs[itemId] ?? ''
+    await saveMeasureValue(itemId, user.id, val, note)
     setMeasureInputs((prev) => ({ ...prev, [itemId]: '' }))
+    setNoteInputs((prev) => ({ ...prev, [itemId]: '' }))
   }
 
   return (
@@ -84,48 +87,79 @@ export default function CheckPage() {
                 </div>
                 {!isOnceAndDone && (
                   item.options && item.options.length > 0 ? (
-                    // 선택 보기 버튼
-                    <div className="flex flex-wrap gap-1.5">
-                      {item.options.map((opt) => {
-                        const isSelected = measureInputs[item.id] === opt
-                        return (
-                          <button key={opt}
-                            onClick={async () => {
-                              setMeasureInputs((prev) => ({ ...prev, [item.id]: opt }))
-                              if (user) await saveMeasureValue(item.id, user.id, opt)
-                            }}
-                            className="px-3 py-1.5 rounded-lg text-sm font-medium"
-                            style={{
-                              background: (status?.value === opt) ? T.accent : isSelected ? T.accentDim : T.surface2,
-                              color: (status?.value === opt) ? '#0d0d12' : isSelected ? T.accent : T.muted,
-                              border: `1px solid ${(status?.value === opt || isSelected) ? T.accentBorder : T.border}`,
-                            }}>
-                            {opt}
-                          </button>
-                        )
-                      })}
+                    // 선택 보기 버튼 + 비고
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.options.map((opt) => {
+                          const isSaved = status?.value === opt
+                          return (
+                            <button key={opt}
+                              onClick={() => setMeasureInputs((prev) => ({ ...prev, [item.id]: opt }))}
+                              className="px-3 py-1.5 rounded-lg text-sm font-medium"
+                              style={{
+                                background: isSaved ? T.accent : measureInputs[item.id] === opt ? T.accentDim : T.surface2,
+                                color: isSaved ? '#0d0d12' : measureInputs[item.id] === opt ? T.accent : T.muted,
+                                border: `1px solid ${(isSaved || measureInputs[item.id] === opt) ? T.accentBorder : T.border}`,
+                              }}>
+                              {opt}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {item.has_note && (
+                        <div className="flex gap-2 items-center">
+                          <input
+                            value={noteInputs[item.id] ?? (status?.note ?? '')}
+                            onChange={(e) => setNoteInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                            onKeyDown={(e) => e.key === 'Enter' && measureInputs[item.id] && handleMeasureSave(item.id)}
+                            placeholder="비고 입력..."
+                            className="flex-1 text-sm outline-none rounded-lg px-3 py-1.5"
+                            style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
+                          />
+                        </div>
+                      )}
+                      {measureInputs[item.id] && (
+                        <button
+                          onClick={() => handleMeasureSave(item.id)}
+                          className="w-full py-1.5 rounded-lg text-sm font-medium"
+                          style={{ background: T.accent, color: '#0d0d12' }}>
+                          저장
+                        </button>
+                      )}
                     </div>
                   ) : (
                     // 직접 입력
-                    <div className="flex gap-2 items-center">
-                      <input
-                        value={measureInputs[item.id] ?? ''}
-                        onChange={(e) => setMeasureInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                        onKeyDown={(e) => e.key === 'Enter' && handleMeasureSave(item.id)}
-                        placeholder={isDone ? '값 수정...' : '값 입력...'}
-                        className="flex-1 text-sm outline-none rounded-lg px-3 py-1.5"
-                        style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
-                      />
-                      <button
-                        onClick={() => handleMeasureSave(item.id)}
-                        disabled={!measureInputs[item.id]?.trim()}
-                        className="text-sm font-medium px-3 py-1.5 rounded-lg"
-                        style={{
-                          background: measureInputs[item.id]?.trim() ? T.accent : T.surface2,
-                          color: measureInputs[item.id]?.trim() ? '#0d0d12' : T.muted,
-                        }}>
-                        저장
-                      </button>
+                    <div className="space-y-2">
+                      <div className="flex gap-2 items-center">
+                        <input
+                          value={measureInputs[item.id] ?? ''}
+                          onChange={(e) => setMeasureInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          onKeyDown={(e) => e.key === 'Enter' && handleMeasureSave(item.id)}
+                          placeholder={isDone ? '값 수정...' : '값 입력...'}
+                          className="flex-1 text-sm outline-none rounded-lg px-3 py-1.5"
+                          style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
+                        />
+                        <button
+                          onClick={() => handleMeasureSave(item.id)}
+                          disabled={!measureInputs[item.id]?.trim()}
+                          className="text-sm font-medium px-3 py-1.5 rounded-lg flex-shrink-0"
+                          style={{
+                            background: measureInputs[item.id]?.trim() ? T.accent : T.surface2,
+                            color: measureInputs[item.id]?.trim() ? '#0d0d12' : T.muted,
+                          }}>
+                          저장
+                        </button>
+                      </div>
+                      {item.has_note && (
+                        <input
+                          value={noteInputs[item.id] ?? (status?.note ?? '')}
+                          onChange={(e) => setNoteInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          onKeyDown={(e) => e.key === 'Enter' && handleMeasureSave(item.id)}
+                          placeholder="비고 입력..."
+                          className="w-full text-sm outline-none rounded-lg px-3 py-1.5"
+                          style={{ background: T.surface2, border: `1px solid ${T.border}`, color: T.text }}
+                        />
+                      )}
                     </div>
                   )
                 )}
