@@ -49,6 +49,8 @@ export interface ChecklistItem {
   label: string
   sort_order: number
   todo_id: string | null
+  item_type: 'check' | 'measure'
+  unit: string | null
   created_at: string
   updated_at: string
 }
@@ -61,6 +63,7 @@ export interface ChecklistItemStatus {
   is_checked: boolean
   checked_by: string | null
   checked_at: string | null
+  value: string | null
 }
 
 export interface ChecklistNotifyTarget {

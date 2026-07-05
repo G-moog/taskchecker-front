@@ -32,6 +32,8 @@ export default function EditPage() {
   const [scheduledDate, setScheduledDate] = useState('')
   const [localItems, setLocalItems] = useState<ChecklistItem[]>([])
   const [newLabel, setNewLabel] = useState('')
+  const [newItemType, setNewItemType] = useState<'check' | 'measure'>('check')
+  const [newUnit, setNewUnit] = useState('')
   const [saving, setSaving] = useState(false)
   const [customOpen, setCustomOpen] = useState(false)
   const [customHours, setCustomHours] = useState(0)
@@ -95,6 +97,8 @@ export default function EditPage() {
             label: item.label,
             sort_order: idx,
             todo_id: item.todo_id ?? null,
+            item_type: item.item_type ?? 'check',
+            unit: item.unit ?? null,
           }))
         )
       }
@@ -117,6 +121,8 @@ export default function EditPage() {
   const handleAddItem = async (label?: string, todoId?: string) => {
     const text = (label ?? newLabel).trim()
     if (!text) return
+    const itemType = todoId ? 'check' : newItemType
+    const unit = itemType === 'measure' ? newUnit.trim() || null : null
 
     if (isNew) {
       const tempItem: ChecklistItem = {
@@ -125,17 +131,19 @@ export default function EditPage() {
         label: text,
         sort_order: localItems.length,
         todo_id: todoId ?? null,
+        item_type: itemType,
+        unit,
         created_at: '',
         updated_at: '',
       }
       setLocalItems((prev) => [...prev, tempItem])
-      if (!label) setNewLabel('')
+      if (!label) { setNewLabel(''); setNewUnit('') }
     } else {
       const { data, error } = await supabase
         .from('checklist_items')
-        .insert({ checklist_id: id!, label: text, sort_order: localItems.length, todo_id: todoId ?? null })
+        .insert({ checklist_id: id!, label: text, sort_order: localItems.length, todo_id: todoId ?? null, item_type: itemType, unit })
         .select().single()
-      if (!error && data) { setLocalItems((prev) => [...prev, data]); if (!label) setNewLabel('') }
+      if (!error && data) { setLocalItems((prev) => [...prev, data]); if (!label) { setNewLabel(''); setNewUnit('') } }
     }
   }
 
@@ -372,16 +380,38 @@ export default function EditPage() {
               {localItems.map((item) => <SortableItem key={item.id} item={item} onDelete={handleDeleteItem} />)}
             </SortableContext>
           </DndContext>
-          <div className="px-4 py-3 flex gap-2 items-center">
-            <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-              placeholder="항목 추가..." className="flex-1 text-sm outline-none bg-transparent"
-              style={{ color: T.text }} />
-            <button onClick={() => handleAddItem()} className="text-sm font-medium" style={{ color: T.accent }}>추가</button>
-            <button onClick={openTodoPicker} className="text-sm font-medium ml-1 px-2 py-1 rounded-lg"
-              style={{ color: T.accent, background: T.accentDim, border: `1px solid ${T.accentBorder}` }}>
-              할 일에서
-            </button>
+          <div className="px-4 py-3 space-y-2" style={{ borderTop: localItems.length > 0 ? `1px solid ${T.border}` : undefined }}>
+            {/* 타입 선택 */}
+            <div className="flex gap-2">
+              {(['check', 'measure'] as const).map((t) => (
+                <button key={t} onClick={() => setNewItemType(t)}
+                  className="px-3 py-1 rounded-lg text-xs font-medium"
+                  style={{
+                    background: newItemType === t ? T.accentDim : T.surface2,
+                    color: newItemType === t ? T.accent : T.muted,
+                    border: `1px solid ${newItemType === t ? T.accentBorder : T.border}`,
+                  }}>
+                  {t === 'check' ? '☑ 체크' : '📏 측정'}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 items-center">
+              <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                placeholder="항목명..." className="flex-1 text-sm outline-none bg-transparent"
+                style={{ color: T.text }} />
+              {newItemType === 'measure' && (
+                <input value={newUnit} onChange={(e) => setNewUnit(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
+                  placeholder="단위" className="w-16 text-sm outline-none bg-transparent text-right"
+                  style={{ color: T.muted }} />
+              )}
+              <button onClick={() => handleAddItem()} className="text-sm font-medium" style={{ color: T.accent }}>추가</button>
+              <button onClick={openTodoPicker} className="text-sm font-medium px-2 py-1 rounded-lg"
+                style={{ color: T.accent, background: T.accentDim, border: `1px solid ${T.accentBorder}` }}>
+                할 일에서
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -435,7 +465,13 @@ function SortableItem({ item, onDelete }: { item: ChecklistItem; onDelete: (id: 
     <div ref={setNodeRef} style={{ ...style, borderBottom: `1px solid ${T.border}` }} className="flex items-center gap-3 px-4 py-3 last:border-0">
       <span {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing select-none" style={{ color: T.border }}>⠿</span>
       <div className="flex-1 min-w-0">
-        <span className="text-sm block" style={{ color: T.text }}>{item.label}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm" style={{ color: T.text }}>{item.label}</span>
+          {item.unit && <span className="text-xs" style={{ color: T.muted }}>({item.unit})</span>}
+          {item.item_type === 'measure' && (
+            <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: T.accentDim, color: T.accent }}>측정</span>
+          )}
+        </div>
         {item.todo_id && (
           <span className="text-xs" style={{ color: T.accent }}>할 일 목록에서 추가됨</span>
         )}

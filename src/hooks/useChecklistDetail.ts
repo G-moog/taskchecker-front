@@ -38,9 +38,7 @@ export function useChecklistDetail(checklistId: string | undefined) {
     setLoading(false)
   }, [checklistId])
 
-  useEffect(() => {
-    fetchAll()
-  }, [fetchAll])
+  useEffect(() => { fetchAll() }, [fetchAll])
 
   // Realtime 구독 (팀 체크리스트)
   useEffect(() => {
@@ -66,13 +64,14 @@ export function useChecklistDetail(checklistId: string | undefined) {
     return () => { supabase.removeChannel(channel) }
   }, [checklistId, checklist])
 
+  // check 타입 항목 토글
   const toggleItem = async (itemId: string, userId: string) => {
     if (!checklistId || !checklist) return
 
     const today = todayString()
     const existing = statuses.find((s) => s.item_id === itemId && (checklist.repeat_type === 'once' || s.status_date === today))
 
-    if (checklist.repeat_type === 'once' && existing?.is_checked) return // once: 완료 후 해제 불가
+    if (checklist.repeat_type === 'once' && existing?.is_checked) return
 
     if (existing) {
       const newChecked = !existing.is_checked
@@ -91,6 +90,31 @@ export function useChecklistDetail(checklistId: string | undefined) {
     }
   }
 
+  // measure 타입 항목 값 저장
+  const saveMeasureValue = async (itemId: string, userId: string, value: string) => {
+    if (!checklistId || !checklist || !value.trim()) return
+
+    const today = todayString()
+    const existing = statuses.find((s) => s.item_id === itemId && (checklist.repeat_type === 'once' || s.status_date === today))
+
+    if (checklist.repeat_type === 'once' && existing?.is_checked) return
+
+    if (existing) {
+      const { error } = await supabase
+        .from('checklist_item_status')
+        .update({ is_checked: true, value: value.trim(), checked_by: userId, checked_at: new Date().toISOString() })
+        .eq('id', existing.id)
+      if (!error) setStatuses((prev) => prev.map((s) => s.id === existing.id ? { ...s, is_checked: true, value: value.trim() } : s))
+    } else {
+      const { data, error } = await supabase
+        .from('checklist_item_status')
+        .insert({ item_id: itemId, checklist_id: checklistId, status_date: today, is_checked: true, value: value.trim(), checked_by: userId, checked_at: new Date().toISOString() })
+        .select()
+        .single()
+      if (!error && data) setStatuses((prev) => [...prev, data])
+    }
+  }
+
   const updateSortOrder = async (orderedIds: string[]) => {
     const updates = orderedIds.map((id, idx) => supabase.from('checklist_items').update({ sort_order: idx }).eq('id', id))
     await Promise.all(updates)
@@ -100,5 +124,5 @@ export function useChecklistDetail(checklistId: string | undefined) {
     })
   }
 
-  return { checklist, items, statuses, loading, toggleItem, updateSortOrder, refetch: fetchAll }
+  return { checklist, items, statuses, loading, toggleItem, saveMeasureValue, updateSortOrder, refetch: fetchAll }
 }
