@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage'
 import MeasurementEditPage from './pages/MeasurementEditPage'
 import MeasurementInputPage from './pages/MeasurementInputPage'
 import MeasurementHistoryPage from './pages/MeasurementHistoryPage'
+import AgendaPage from './pages/AgendaPage'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -46,6 +47,7 @@ function AppRoutes() {
       <Route path="/measurement/:id/edit" element={<MeasurementEditPage />} />
       <Route path="/measurement/:id/input" element={<MeasurementInputPage />} />
       <Route path="/measurement/:id/history" element={<MeasurementHistoryPage />} />
+      <Route path="/agenda/:id" element={<AgendaPage />} />
       <Route path="/todos" element={<TodoPage />} />
       <Route path="/mypage" element={<MyPage />} />
       <Route path="/settings" element={<SettingsPage />} />

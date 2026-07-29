@@ -7,12 +7,13 @@ import { Sidebar } from '../components/Sidebar'
 import { TeamStatusTab } from '../components/TeamStatusTab'
 import { TeamTodoList } from '../components/TeamTodoList'
 import { MeasurementList } from '../components/MeasurementList'
+import { MeetingTab } from '../components/MeetingTab'
 import { T } from '../theme'
 import type { Checklist } from '../types/database'
 
 type Tab = 'personal' | 'team'
 type PersonalSubTab = 'checklist' | 'measurement'
-type TeamSubTab = 'checklist' | 'todo' | 'status' | 'measurement'
+type TeamSubTab = 'checklist' | 'todo' | 'status' | 'measurement' | 'meeting'
 
 export default function HomePage() {
   const { user, signOut } = useAuth()
@@ -167,7 +168,7 @@ export default function HomePage() {
       {/* 팀 서브탭 */}
       {showTeamSubTabs && (
         <div className="flex px-4 gap-4" style={{ background: T.bg, borderBottom: `1px solid ${T.border}` }}>
-          {([['checklist', '체크리스트'], ['todo', '할 일'], ['status', '현황'], ['measurement', '측정']] as [TeamSubTab, string][]).map(([key, label]) => (
+          {([['checklist', '체크리스트'], ['todo', '할 일'], ['status', '현황'], ['measurement', '측정'], ['meeting', '회의']] as [TeamSubTab, string][]).map(([key, label]) => (
             <button key={key} onClick={() => setTeamSubTab(key)}
               className="py-2.5 text-sm font-medium transition-colors"
               style={{
@@ -189,6 +190,8 @@ export default function HomePage() {
         <TeamTodoList teamId={selectedTeamId} />
       ) : showTeamSubTabs && teamSubTab === 'measurement' ? (
         <MeasurementList ownerType="team" ownerId={selectedTeamId} />
+      ) : showTeamSubTabs && teamSubTab === 'meeting' ? (
+        <MeetingTab teamId={selectedTeamId} />
       ) : (
         <div className="px-4 py-4 space-y-2 max-w-lg mx-auto">
           {loading ? (

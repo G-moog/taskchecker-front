@@ -121,6 +121,34 @@ export interface MeasurementValue {
   value: string
 }
 
+/** 'vote' = 찬성/반대/기권 + 이유(선택), 'discussion' = 서술형 의견만 */
+export type AgendaResponseType = 'vote' | 'discussion'
+/** 'app' = 앱에서 의견 종합해 마무리, 'offline' = 대면회의에서 최종 결정 */
+export type AgendaDecisionMode = 'app' | 'offline'
+export type AgendaStance = 'for' | 'against' | 'abstain'
+
+export interface MeetingAgenda {
+  id: string
+  team_id: string
+  title: string
+  body: string | null
+  response_type: AgendaResponseType
+  decision_mode: AgendaDecisionMode
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+export interface MeetingResponse {
+  id: string
+  agenda_id: string
+  user_id: string
+  stance: AgendaStance | null
+  comment: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface UserPushToken {
   id: string
   user_id: string
@@ -183,6 +211,18 @@ export type Database = {
         Row: Todo
         Insert: Omit<Todo, 'id' | 'created_at'>
         Update: Partial<Omit<Todo, 'id'>>
+        Relationships: []
+      }
+      meeting_agendas: {
+        Row: MeetingAgenda
+        Insert: Omit<MeetingAgenda, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<MeetingAgenda, 'id'>>
+        Relationships: []
+      }
+      meeting_responses: {
+        Row: MeetingResponse
+        Insert: Omit<MeetingResponse, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<MeetingResponse, 'id'>>
         Relationships: []
       }
     }
