@@ -1,9 +1,8 @@
 -- 회의 기능: 안건 제안 + 의견 제시
 -- Supabase SQL Editor에서 실행. 재실행해도 안전하도록 작성됨.
 
--- ─────────────────────────────────────────────
+
 -- 1. 테이블
--- ─────────────────────────────────────────────
 
 create table if not exists public.meeting_agendas (
   id            uuid primary key default gen_random_uuid(),
@@ -40,12 +39,11 @@ create table if not exists public.meeting_responses (
 create index if not exists meeting_responses_agenda_idx
   on public.meeting_responses (agenda_id);
 
--- ─────────────────────────────────────────────
--- 2. updated_at 자동 갱신
--- ─────────────────────────────────────────────
 
+-- 2. updated_at 자동 갱신
 -- 기존 프로젝트에 set_updated_at()이 이미 있으면 건드리지 않는다.
-do $$
+
+do $do$
 begin
   if not exists (
     select 1 from pg_proc p
@@ -53,14 +51,15 @@ begin
     where n.nspname = 'public' and p.proname = 'set_updated_at'
   ) then
     create function public.set_updated_at() returns trigger
-    language plpgsql as $f$
+    language plpgsql as $fn$
     begin
       new.updated_at = now();
       return new;
     end;
-    $f$;
+    $fn$;
   end if;
-end $$;
+end
+$do$;
 
 drop trigger if exists meeting_agendas_set_updated_at on public.meeting_agendas;
 create trigger meeting_agendas_set_updated_at
@@ -72,41 +71,40 @@ create trigger meeting_responses_set_updated_at
   before update on public.meeting_responses
   for each row execute function public.set_updated_at();
 
--- ─────────────────────────────────────────────
+
 -- 3. RLS 헬퍼
--- ─────────────────────────────────────────────
 -- team_members를 정책 안에서 직접 조회하면 재귀가 걸리므로 SECURITY DEFINER로 우회한다.
--- (기존 is_team_member / can_access_checklist와 같은 방식. 시그니처 충돌을 피하려고 이름을 달리 둠)
+-- (기존 is_team_member / can_access_checklist와 같은 방식.
+--  시그니처 충돌을 피하려고 이름을 달리 둠)
 
 create or replace function public.is_member_of_team(p_team_id uuid)
 returns boolean
 language sql
 security definer
 set search_path = public
-as $$
+as $fn$
   select exists (
     select 1 from team_members
     where team_id = p_team_id and user_id = auth.uid()
   );
-$$;
+$fn$;
 
 create or replace function public.can_access_agenda(p_agenda_id uuid)
 returns boolean
 language sql
 security definer
 set search_path = public
-as $$
+as $fn$
   select exists (
     select 1
     from meeting_agendas a
     join team_members m on m.team_id = a.team_id
     where a.id = p_agenda_id and m.user_id = auth.uid()
   );
-$$;
+$fn$;
 
--- ─────────────────────────────────────────────
+
 -- 4. RLS 정책
--- ─────────────────────────────────────────────
 
 alter table public.meeting_agendas   enable row level security;
 alter table public.meeting_responses enable row level security;
