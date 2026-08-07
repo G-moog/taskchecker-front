@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useChecklistDetail } from '../hooks/useChecklistDetail'
+import { SheetTargetPicker } from '../components/SheetTargetPicker'
 import { T } from '../theme'
 import type { ChecklistItem, RepeatType, Todo } from '../types/database'
 import { useSettings } from '../hooks/useSettings'
@@ -50,8 +51,12 @@ export default function EditPage() {
   const [customMinutes, setCustomMinutes] = useState(30)
   const [showTodoPicker, setShowTodoPicker] = useState(false)
   const [todos, setTodos] = useState<Todo[]>([])
+  const [sheetTargetId, setSheetTargetId] = useState<string | null>(null)
+  const [sheetTabName, setSheetTabName] = useState('')
 
   const isTeam = isNew ? ownerType === 'team' : checklist?.owner_type === 'team'
+  const effectiveOwnerType = ownerType ?? checklist?.owner_type ?? 'personal'
+  const effectiveOwnerId = ownerId || checklist?.owner_id || ''
 
   useEffect(() => {
     if (checklist) {
@@ -60,6 +65,8 @@ export default function EditPage() {
       setRepeatDays(checklist.repeat_days ?? [])
       setNotifyTime(checklist.notify_time ?? '')
       setScheduledDate(checklist.scheduled_date ?? '')
+      setSheetTargetId(checklist.sheet_target_id ?? null)
+      setSheetTabName(checklist.sheet_tab_name ?? '')
     }
   }, [checklist])
 
@@ -93,6 +100,8 @@ export default function EditPage() {
           repeat_days: repeatType === 'weekly' ? repeatDays : null,
           notify_time: notifyTime || null,
           scheduled_date: repeatType === 'once' ? (scheduledDate || null) : null,
+          sheet_target_id: sheetTargetId,
+          sheet_tab_name: sheetTabName.trim() || null,
           created_by: user!.id,
         })
         .select()
@@ -121,12 +130,12 @@ export default function EditPage() {
         repeat_days: repeatType === 'weekly' ? repeatDays : null,
         notify_time: notifyTime || null,
         scheduled_date: repeatType === 'once' ? (scheduledDate || null) : null,
+        sheet_target_id: sheetTargetId,
+        sheet_tab_name: sheetTabName.trim() || null,
       }).eq('id', id!)
     }
 
     setSaving(false)
-    const effectiveOwnerType = ownerType ?? checklist?.owner_type ?? 'personal'
-    const effectiveOwnerId = ownerId || checklist?.owner_id || ''
     navigate('/', { state: effectiveOwnerType === 'team' ? { tab: 'team', teamId: effectiveOwnerId } : { tab: 'personal' } })
   }
 
@@ -408,6 +417,29 @@ export default function EditPage() {
             <label className="block text-xs mb-1" style={{ color: T.muted }}>알림 대상</label>
             <p className="text-sm" style={{ color: T.muted }}>전체 팀원 (기본값)</p>
           </div>
+        )}
+
+        {/* 구글 시트 연동 */}
+        {effectiveOwnerId && (
+          <>
+            <SheetTargetPicker
+              ownerType={effectiveOwnerType}
+              ownerId={effectiveOwnerId}
+              targetId={sheetTargetId}
+              tabName={sheetTabName}
+              defaultTabName={title.trim()}
+              onChange={(nextTargetId, nextTabName) => {
+                setSheetTargetId(nextTargetId)
+                setSheetTabName(nextTabName)
+              }}
+            />
+            {sheetTargetId && (
+              <p className="text-xs px-1 leading-relaxed" style={{ color: T.muted }}>
+                체크 화면에서 OK를 누르면 그날 측정 항목 값이 한 줄로 기록됩니다.
+                같은 날 값을 고치고 다시 OK를 누르면 그 줄이 갱신됩니다. (측정 항목만 전송)
+              </p>
+            )}
+          </>
         )}
 
         {/* 항목 목록 */}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { syncToSheet } from '../lib/sheetSync'
 import { T } from '../theme'
 import type { MeasurementField, MeasurementForm } from '../types/database'
 
@@ -34,31 +35,6 @@ export default function MeasurementInputPage() {
     load()
   }, [id])
 
-  /** 구글 시트로 전송. 성공하면 null, 실패하면 사용자에게 보여줄 메시지를 반환한다. */
-  const syncToSheet = async (entryId: string): Promise<string | null> => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-measurement-sheet`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ entry_id: entryId }),
-        },
-      )
-      if (res.ok) return null
-      // Edge Function이 아직 배포되지 않은 상태 — 시트 연동 전에는 조용히 넘어간다
-      if (res.status === 404) return null
-      const body = await res.json().catch(() => ({}))
-      return body.error ?? `전송에 실패했습니다 (HTTP ${res.status})`
-    } catch {
-      return '네트워크 오류로 전송하지 못했습니다.'
-    }
-  }
-
   const handleSave = async () => {
     if (!user || !form) return
     setSaving(true)
@@ -81,7 +57,7 @@ export default function MeasurementInputPage() {
     }
 
     setSavedEntryId(entry.id)
-    const message = await syncToSheet(entry.id)
+    const message = await syncToSheet({ kind: 'measurement', entryId: entry.id })
     setSaving(false)
 
     if (message) { setSyncError(message); return }
@@ -91,7 +67,7 @@ export default function MeasurementInputPage() {
   const handleRetrySync = async () => {
     if (!savedEntryId) return
     setSaving(true)
-    const message = await syncToSheet(savedEntryId)
+    const message = await syncToSheet({ kind: 'measurement', entryId: savedEntryId })
     setSaving(false)
 
     if (message) { setSyncError(message); return }

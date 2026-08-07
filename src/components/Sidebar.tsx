@@ -5,6 +5,7 @@ const MENU = [
   { label: '홈', path: '/' },
   { label: '할 일 목록', path: '/todos' },
   { label: '마이페이지', path: '/mypage' },
+  { label: '구글 시트', path: '/sheets' },
   { label: '설정', path: '/settings' },
 ]
 

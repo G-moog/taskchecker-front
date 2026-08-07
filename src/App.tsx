@@ -14,6 +14,7 @@ import MeasurementEditPage from './pages/MeasurementEditPage'
 import MeasurementInputPage from './pages/MeasurementInputPage'
 import MeasurementHistoryPage from './pages/MeasurementHistoryPage'
 import AgendaPage from './pages/AgendaPage'
+import SheetTargetsPage from './pages/SheetTargetsPage'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -50,6 +51,7 @@ function AppRoutes() {
       <Route path="/agenda/:id" element={<AgendaPage />} />
       <Route path="/todos" element={<TodoPage />} />
       <Route path="/mypage" element={<MyPage />} />
+      <Route path="/sheets" element={<SheetTargetsPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

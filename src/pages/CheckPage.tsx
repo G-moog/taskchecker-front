@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useChecklistDetail } from '../hooks/useChecklistDetail'
+import { syncToSheet } from '../lib/sheetSync'
 import { T } from '../theme'
 
 export default function CheckPage() {
@@ -13,6 +14,8 @@ export default function CheckPage() {
   // 측정 항목별 입력 중인 값 (itemId → value)
   const [measureInputs, setMeasureInputs] = useState<Record<string, string>>({})
   const [noteInputs, setNoteInputs] = useState<Record<string, string>>({})
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>불러오는 중...</div>
   if (!checklist) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>체크리스트를 찾을 수 없습니다</div>
@@ -27,6 +30,32 @@ export default function CheckPage() {
   const checkedCount = items.filter((i) => !!getStatus(i.id)).length
   const allChecked = items.length > 0 && checkedCount === items.length
   const progress = items.length > 0 ? (checkedCount / items.length) * 100 : 0
+
+  // once 체크리스트는 값이 입력된 날짜에 status_date가 고정되므로 그 날짜를 쓴다
+  const syncDate = checklist.repeat_type === 'once'
+    ? (statuses.find((s) => s.status_date)?.status_date ?? today)
+    : today
+
+  const goHome = () =>
+    navigate('/', {
+      state: checklist.owner_type === 'team'
+        ? { tab: 'team', teamId: checklist.owner_id }
+        : { tab: 'personal' },
+    })
+
+  const handleConfirm = async () => {
+    setSyncError(null)
+    setSyncing(true)
+    const message = await syncToSheet({
+      kind: 'checklist',
+      checklistId: checklist.id,
+      statusDate: syncDate,
+    })
+    setSyncing(false)
+
+    if (message) { setSyncError(message); return }
+    goHome()
+  }
 
   const handleMeasureSave = async (itemId: string) => {
     if (!user) return
@@ -209,21 +238,41 @@ export default function CheckPage() {
       {showModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50 px-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
           <div className="rounded-2xl p-6 w-full max-w-xs text-center" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
-            <p className="text-sm mb-6 whitespace-pre-line" style={{ color: T.text }}>
-              {allChecked ? '모든 항목을 수행하였습니다.' : '미수행 항목이 있습니다.\n넘어가시겠습니까?'}
-            </p>
-            <div className={`flex gap-3 ${allChecked ? 'justify-center' : ''}`}>
-              {!allChecked && (
-                <button onClick={() => setShowModal(false)} className="flex-1 rounded-xl py-2.5 text-sm"
-                  style={{ border: `1px solid ${T.border}`, color: T.muted }}>취소</button>
-              )}
-              <button
-                onClick={() => navigate('/', { state: checklist.owner_type === 'team' ? { tab: 'team', teamId: checklist.owner_id } : { tab: 'personal' } })}
-                className={`rounded-xl py-2.5 text-sm font-medium ${allChecked ? 'px-10' : 'flex-1'}`}
-                style={{ background: T.accent, color: '#0d0d12' }}>
-                확인
-              </button>
-            </div>
+            {syncError ? (
+              <>
+                <p className="text-sm mb-1" style={{ color: T.danger }}>구글 시트 전송에 실패했습니다.</p>
+                <p className="text-xs mb-6" style={{ color: T.muted }}>{syncError}</p>
+                <div className="flex gap-3">
+                  <button onClick={handleConfirm} disabled={syncing}
+                    className="flex-1 rounded-xl py-2.5 text-sm font-medium"
+                    style={{ background: T.accent, color: '#0d0d12', opacity: syncing ? 0.4 : 1 }}>
+                    {syncing ? '전송 중...' : '다시 시도'}
+                  </button>
+                  <button onClick={goHome} className="flex-1 rounded-xl py-2.5 text-sm"
+                    style={{ border: `1px solid ${T.border}`, color: T.muted }}>넘어가기</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm mb-6 whitespace-pre-line" style={{ color: T.text }}>
+                  {allChecked ? '모든 항목을 수행하였습니다.' : '미수행 항목이 있습니다.\n넘어가시겠습니까?'}
+                </p>
+                <div className={`flex gap-3 ${allChecked ? 'justify-center' : ''}`}>
+                  {!allChecked && (
+                    <button onClick={() => setShowModal(false)} disabled={syncing}
+                      className="flex-1 rounded-xl py-2.5 text-sm"
+                      style={{ border: `1px solid ${T.border}`, color: T.muted }}>취소</button>
+                  )}
+                  <button
+                    onClick={handleConfirm}
+                    disabled={syncing}
+                    className={`rounded-xl py-2.5 text-sm font-medium ${allChecked ? 'px-10' : 'flex-1'}`}
+                    style={{ background: T.accent, color: '#0d0d12', opacity: syncing ? 0.4 : 1 }}>
+                    {syncing ? '전송 중...' : '확인'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

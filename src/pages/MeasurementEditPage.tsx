@@ -5,6 +5,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { SheetTargetPicker } from '../components/SheetTargetPicker'
 import { T } from '../theme'
 import type { MeasurementField } from '../types/database'
 
@@ -28,6 +29,8 @@ export default function MeasurementEditPage() {
   const [fields, setFields] = useState<LocalField[]>([])
   const [newLabel, setNewLabel] = useState('')
   const [newUnit, setNewUnit] = useState('')
+  const [sheetTargetId, setSheetTargetId] = useState<string | null>(null)
+  const [sheetTabName, setSheetTabName] = useState('')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!isNew)
 
@@ -44,6 +47,8 @@ export default function MeasurementEditPage() {
         setTitle(form.title)
         setNotifyWeekday(form.notify_weekday)
         setNotifyTime(form.notify_time ?? '')
+        setSheetTargetId(form.sheet_target_id ?? null)
+        setSheetTabName(form.sheet_tab_name ?? '')
       }
       setFields(flds ?? [])
       setLoading(false)
@@ -97,6 +102,8 @@ export default function MeasurementEditPage() {
           owner_id: effectiveOwnerId,
           notify_weekday: notifyWeekday,
           notify_time: notifyTime || null,
+          sheet_target_id: sheetTargetId,
+          sheet_tab_name: sheetTabName.trim() || null,
           created_by: user.id,
         })
         .select()
@@ -108,6 +115,8 @@ export default function MeasurementEditPage() {
         title: title.trim(),
         notify_weekday: notifyWeekday,
         notify_time: notifyTime || null,
+        sheet_target_id: sheetTargetId,
+        sheet_tab_name: sheetTabName.trim() || null,
       }).eq('id', id!)
       // 기존 항목 전부 삭제 후 재삽입 (순서 변경 포함)
       await supabase.from('measurement_fields').delete().eq('form_id', id!)
@@ -188,6 +197,21 @@ export default function MeasurementEditPage() {
             </div>
           )}
         </div>
+
+        {/* 구글 시트 연동 */}
+        {effectiveOwnerId && (
+          <SheetTargetPicker
+            ownerType={effectiveOwnerType}
+            ownerId={effectiveOwnerId}
+            targetId={sheetTargetId}
+            tabName={sheetTabName}
+            defaultTabName={title.trim()}
+            onChange={(nextTargetId, nextTabName) => {
+              setSheetTargetId(nextTargetId)
+              setSheetTabName(nextTabName)
+            }}
+          />
+        )}
 
         {/* 측정 항목 */}
         <div className="rounded-xl overflow-hidden" style={{ background: T.surface, border: `1px solid ${T.border}` }}>

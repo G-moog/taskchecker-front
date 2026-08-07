@@ -38,6 +38,10 @@ export interface Checklist {
   repeat_days: number[] | null
   notify_time: string | null
   scheduled_date: string | null
+  /** null이면 시트로 보내지 않는다 */
+  sheet_target_id: string | null
+  /** null이면 title을 탭 이름으로 쓴다 */
+  sheet_tab_name: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -88,6 +92,17 @@ export interface Todo {
   created_at: string
 }
 
+/** 구글 시트 연동 대상 — 스프레드시트 파일 하나 */
+export interface SheetTarget {
+  id: string
+  owner_type: OwnerType
+  owner_id: string
+  name: string
+  spreadsheet_id: string
+  created_by: string
+  created_at: string
+}
+
 export interface MeasurementForm {
   id: string
   title: string
@@ -95,6 +110,10 @@ export interface MeasurementForm {
   owner_id: string
   notify_weekday: number | null
   notify_time: string | null
+  /** null이면 시트로 보내지 않는다 */
+  sheet_target_id: string | null
+  /** null이면 title을 탭 이름으로 쓴다 */
+  sheet_tab_name: string | null
   created_by: string
   created_at: string
 }
@@ -211,6 +230,12 @@ export type Database = {
         Row: Todo
         Insert: Omit<Todo, 'id' | 'created_at'>
         Update: Partial<Omit<Todo, 'id'>>
+        Relationships: []
+      }
+      sheet_targets: {
+        Row: SheetTarget
+        Insert: Omit<SheetTarget, 'id' | 'created_at'>
+        Update: Partial<Omit<SheetTarget, 'id'>>
         Relationships: []
       }
       meeting_agendas: {
