@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useChecklistDetail } from '../hooks/useChecklistDetail'
 import { syncToSheet } from '../lib/sheetSync'
 import { T } from '../theme'
+import type { ChecklistItem } from '../types/database'
 
 /** 측정 항목의 최종 저장 시각 — 저장할 때마다 checked_at이 덮어써진다 */
 function formatSavedAt(iso: string) {
@@ -15,7 +16,7 @@ function formatSavedAt(iso: string) {
 export default function CheckPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
-  const { checklist, items, statuses, loading, toggleItem, saveMeasureValue } = useChecklistDetail(id)
+  const { checklist, items, statuses, loading, toggleItem, saveMeasureValue, clearMeasureValue } = useChecklistDetail(id)
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   // 측정 항목별 입력 중인 값 (itemId → value)
@@ -23,6 +24,9 @@ export default function CheckPage() {
   const [noteInputs, setNoteInputs] = useState<Record<string, string>>({})
   const [syncing, setSyncing] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
+  // 롱프레스로 입력 취소할 측정 항목
+  const [cancelTarget, setCancelTarget] = useState<ChecklistItem | null>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>불러오는 중...</div>
   if (!checklist) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>체크리스트를 찾을 수 없습니다</div>
@@ -62,6 +66,29 @@ export default function CheckPage() {
 
     if (message) { setSyncError(message); return }
     goHome()
+  }
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  const startLongPress = (e: React.PointerEvent, item: ChecklistItem) => {
+    // 입력 필드나 버튼을 누른 것이면 롱프레스로 보지 않는다
+    if ((e.target as HTMLElement).closest('input, button, textarea, select')) return
+    cancelLongPress()
+    longPressTimer.current = setTimeout(() => setCancelTarget(item), 500)
+  }
+
+  const handleCancelValue = async () => {
+    if (!cancelTarget) return
+    const itemId = cancelTarget.id
+    await clearMeasureValue(itemId)
+    setMeasureInputs((prev) => ({ ...prev, [itemId]: '' }))
+    setNoteInputs((prev) => ({ ...prev, [itemId]: '' }))
+    setCancelTarget(null)
   }
 
   const handleMeasureSave = async (itemId: string) => {
@@ -104,11 +131,16 @@ export default function CheckPage() {
             const savedValue = status?.value
             const isOnceAndDone = checklist.repeat_type === 'once' && isDone
             return (
-              <div key={item.id} className="rounded-xl px-4 py-3"
+              <div key={item.id} className="rounded-xl px-4 py-3 select-none"
                 style={{
                   background: isDone ? T.accentDim : T.surface,
                   border: `1px solid ${isDone ? T.accentBorder : T.border}`,
-                }}>
+                }}
+                onPointerDown={(e) => isDone && startLongPress(e, item)}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onContextMenu={(e) => isDone && e.preventDefault()}>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: T.accentDim, color: T.accent }}>측정</span>
@@ -121,9 +153,9 @@ export default function CheckPage() {
                     </span>
                   )}
                 </div>
-                {isDone && status?.checked_at && (
+                {isDone && (
                   <p className="text-xs mb-2" style={{ color: T.muted }}>
-                    최종 저장 {formatSavedAt(status.checked_at)}
+                    {status?.checked_at && `최종 저장 ${formatSavedAt(status.checked_at)} · `}꾹 눌러 입력 취소
                   </p>
                 )}
                 {!isOnceAndDone && (
@@ -245,6 +277,30 @@ export default function CheckPage() {
           OK
         </button>
       </div>
+
+      {/* 측정값 입력 취소 확인 */}
+      {cancelTarget && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 px-4"
+          style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => setCancelTarget(null)}>
+          <div className="rounded-2xl p-6 w-full max-w-xs text-center"
+            style={{ background: T.surface, border: `1px solid ${T.border}` }}
+            onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm mb-1" style={{ color: T.text }}>입력을 취소하시겠습니까?</p>
+            <p className="text-xs mb-6" style={{ color: T.muted }}>
+              '{cancelTarget.label}'에 저장된 값{cancelTarget.has_note ? '과 비고' : ''}이 삭제되고 미입력 상태로 돌아갑니다.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setCancelTarget(null)} className="flex-1 rounded-xl py-2.5 text-sm"
+                style={{ border: `1px solid ${T.border}`, color: T.muted }}>닫기</button>
+              <button onClick={handleCancelValue} className="flex-1 rounded-xl py-2.5 text-sm font-medium"
+                style={{ background: T.dangerDim, color: T.danger, border: `1px solid ${T.dangerBorder}` }}>
+                입력 취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 확인 모달 */}
       {showModal && (

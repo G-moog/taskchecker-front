@@ -117,6 +117,20 @@ export function useChecklistDetail(checklistId: string | undefined) {
     }
   }
 
+  // measure 타입 항목 값 취소 — 저장 기록 자체를 지워 미입력 상태로 되돌린다
+  const clearMeasureValue = async (itemId: string) => {
+    if (!checklistId || !checklist) return
+
+    const today = todayString()
+    const existing = statuses.find(
+      (s) => s.item_id === itemId && (checklist.repeat_type === 'once' || s.status_date === today),
+    )
+    if (!existing) return
+
+    const { error } = await supabase.from('checklist_item_status').delete().eq('id', existing.id)
+    if (!error) setStatuses((prev) => prev.filter((s) => s.id !== existing.id))
+  }
+
   const updateSortOrder = async (orderedIds: string[]) => {
     const updates = orderedIds.map((id, idx) => supabase.from('checklist_items').update({ sort_order: idx }).eq('id', id))
     await Promise.all(updates)
@@ -126,5 +140,5 @@ export function useChecklistDetail(checklistId: string | undefined) {
     })
   }
 
-  return { checklist, items, statuses, loading, toggleItem, saveMeasureValue, updateSortOrder, refetch: fetchAll }
+  return { checklist, items, statuses, loading, toggleItem, saveMeasureValue, clearMeasureValue, updateSortOrder, refetch: fetchAll }
 }
