@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { todayString } from '../lib/date'
 import type { Checklist } from '../types/database'
 
 export type CompletionStatus = 'all' | 'partial' | 'none' | 'future'
@@ -114,7 +115,7 @@ export function useCalendarData(userId: string | undefined, year: number, month:
         .lte('status_date', endDate) : { data: [] }
 
       // 날짜별 데이터 구성
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayString()
       const total = daysInMonth(year, month)
       const result: CalendarData = {}
 

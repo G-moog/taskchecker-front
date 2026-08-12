@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useChecklistDetail } from '../hooks/useChecklistDetail'
 import { syncToSheet } from '../lib/sheetSync'
+import { todayString } from '../lib/date'
 import { T } from '../theme'
 import type { ChecklistItem } from '../types/database'
 
@@ -31,7 +32,7 @@ export default function CheckPage() {
   if (loading) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>불러오는 중...</div>
   if (!checklist) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>체크리스트를 찾을 수 없습니다</div>
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayString()
 
   const getStatus = (itemId: string) => {
     if (checklist.repeat_type === 'once') return statuses.find((s) => s.item_id === itemId && s.is_checked)

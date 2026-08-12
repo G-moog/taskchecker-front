@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { todayString } from '../lib/date'
 import type { Checklist } from '../types/database'
 
 function isAssigned(cl: Checklist, dateStr: string, dayOfWeek: number): boolean {
@@ -77,7 +78,7 @@ export function useTeamCalendarData(
         .gte('status_date', startDate)
         .lte('status_date', endDate)
 
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayString()
       const result: TeamCalendarData = {}
 
       for (let day = 1; day <= totalDays; day++) {

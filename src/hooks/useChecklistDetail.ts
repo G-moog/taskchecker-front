@@ -1,10 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { todayString } from '../lib/date'
 import type { Checklist, ChecklistItem, ChecklistItemStatus } from '../types/database'
-
-function todayString() {
-  return new Date().toISOString().split('T')[0]
-}
 
 export function useChecklistDetail(checklistId: string | undefined) {
   const [checklist, setChecklist] = useState<Checklist | null>(null)
@@ -12,9 +9,13 @@ export function useChecklistDetail(checklistId: string | undefined) {
   const [statuses, setStatuses] = useState<ChecklistItemStatus[]>([])
   const [loading, setLoading] = useState(true)
 
+  // 마지막으로 불러온 시점의 날짜 — 자정을 넘겼는지 판단하는 데 쓴다
+  const fetchedDateRef = useRef('')
+
   const fetchAll = useCallback(async () => {
     if (!checklistId) { setLoading(false); return }
     setLoading(true)
+    fetchedDateRef.current = todayString()
 
     const [clRes, itemsRes] = await Promise.all([
       supabase.from('checklists').select('*').eq('id', checklistId).single(),
@@ -39,6 +40,17 @@ export function useChecklistDetail(checklistId: string | undefined) {
   }, [checklistId])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // 앱을 켜둔 채 자정을 넘기면 어제 값이 그대로 남는다.
+  // 화면이 다시 보일 때 날짜가 바뀌었으면 새로 불러온다.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      if (fetchedDateRef.current && fetchedDateRef.current !== todayString()) fetchAll()
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [fetchAll])
 
   // Realtime 구독 (팀 체크리스트)
   useEffect(() => {
