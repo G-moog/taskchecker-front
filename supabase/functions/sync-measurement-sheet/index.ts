@@ -25,6 +25,8 @@ interface SheetPayload {
   rowKey?: string
   submittedAt: string
   submittedBy: string
+  /** 체크리스트 전용 — 그날 항목들 중 가장 늦게 저장된 시각 */
+  lastSavedAt?: string
   values: SheetValue[]
 }
 
@@ -148,20 +150,24 @@ async function buildChecklistPayload(
       .eq('item_type', 'measure')
       .order('sort_order'),
     admin.from('checklist_item_status')
-      .select('item_id, value, note')
+      .select('item_id, value, note, checked_at')
       .eq('checklist_id', cl.id)
       .eq('status_date', statusDate),
   ])
 
   if (!items || items.length === 0) return { kind: 'skipped', reason: 'no_measure_items' }
 
-  const statusMap = new Map(
-    (statuses ?? []).map((s: { item_id: string; value: string | null; note: string | null }) => [s.item_id, s]),
-  )
+  type StatusRow = { item_id: string; value: string | null; note: string | null; checked_at: string | null }
+  const statusRows = (statuses ?? []) as StatusRow[]
+  const statusMap = new Map(statusRows.map((s) => [s.item_id, s]))
+
+  // ISO 문자열은 사전순 정렬이 곧 시간순이다
+  const savedTimes = statusRows.map((s) => s.checked_at).filter((t): t is string => !!t).sort()
+  const lastSavedAt = savedTimes.length > 0 ? savedTimes[savedTimes.length - 1] : undefined
 
   const values: SheetValue[] = []
   for (const item of items as { id: string; label: string; unit: string | null; has_note: boolean }[]) {
-    const st = statusMap.get(item.id) as { value: string | null; note: string | null } | undefined
+    const st = statusMap.get(item.id)
     values.push({ label: item.label, unit: item.unit, value: st?.value ?? '' })
     if (item.has_note) {
       values.push({ label: `${item.label} 비고`, unit: null, value: st?.note ?? '' })
@@ -177,6 +183,7 @@ async function buildChecklistPayload(
       rowKey: `${cl.id}|${statusDate}`,
       submittedAt: statusDate,
       submittedBy: userLabel,
+      lastSavedAt,
       values,
     },
   }

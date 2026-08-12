@@ -32,6 +32,7 @@ var SECRET = 'CHANGE_ME'
 var KEY_COLUMN = '_key'   // upsert용 숨김 열
 var DATE_COLUMN = '제출일시'
 var USER_COLUMN = '입력자'
+var SAVED_COLUMN = '최종 저장일시'   // 체크리스트 전용 — 그날 마지막으로 값을 저장한 시각
 
 function doPost(e) {
   try {
@@ -66,6 +67,9 @@ function doPost(e) {
 
     headers = ensureColumn(sheet, headers, DATE_COLUMN)
     headers = ensureColumn(sheet, headers, USER_COLUMN)
+    if (body.lastSavedAt) {
+      headers = ensureColumn(sheet, headers, SAVED_COLUMN)
+    }
 
     var incoming = body.values || []
     for (var i = 0; i < incoming.length; i++) {
@@ -83,6 +87,9 @@ function doPost(e) {
 
     row[headers.indexOf(DATE_COLUMN)] = body.submittedAt ? new Date(body.submittedAt) : new Date()
     row[headers.indexOf(USER_COLUMN)] = body.submittedBy || ''
+    if (body.lastSavedAt) {
+      row[headers.indexOf(SAVED_COLUMN)] = new Date(body.lastSavedAt)
+    }
 
     for (var j = 0; j < incoming.length; j++) {
       var idx = headers.indexOf(columnName(incoming[j]))

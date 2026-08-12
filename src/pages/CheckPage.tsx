@@ -5,6 +5,13 @@ import { useChecklistDetail } from '../hooks/useChecklistDetail'
 import { syncToSheet } from '../lib/sheetSync'
 import { T } from '../theme'
 
+/** 측정 항목의 최종 저장 시각 — 저장할 때마다 checked_at이 덮어써진다 */
+function formatSavedAt(iso: string) {
+  return new Date(iso).toLocaleString('ko-KR', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
 export default function CheckPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
@@ -114,6 +121,11 @@ export default function CheckPage() {
                     </span>
                   )}
                 </div>
+                {isDone && status?.checked_at && (
+                  <p className="text-xs mb-2" style={{ color: T.muted }}>
+                    최종 저장 {formatSavedAt(status.checked_at)}
+                  </p>
+                )}
                 {!isOnceAndDone && (
                   item.options && item.options.length > 0 ? (
                     // 선택 보기 버튼 + 비고
