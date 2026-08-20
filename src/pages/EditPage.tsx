@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useChecklistDetail } from '../hooks/useChecklistDetail'
 import { SheetTargetPicker } from '../components/SheetTargetPicker'
+import { ExcelItemsCard, type ExcelPreview } from '../components/ExcelItemsCard'
+import { diffByLabel, downloadChecklistItems, parseChecklistItems, type ChecklistItemRow } from '../lib/excelItems'
 import { T } from '../theme'
 import type { ChecklistItem, RepeatType, Todo } from '../types/database'
 import { useSettings } from '../hooks/useSettings'
@@ -53,6 +55,9 @@ export default function EditPage() {
   const [todos, setTodos] = useState<Todo[]>([])
   const [sheetTargetId, setSheetTargetId] = useState<string | null>(null)
   const [sheetTabName, setSheetTabName] = useState('')
+  const [excelRows, setExcelRows] = useState<ChecklistItemRow[] | null>(null)
+  const [excelPreview, setExcelPreview] = useState<ExcelPreview | null>(null)
+  const [excelApplying, setExcelApplying] = useState(false)
 
   const isTeam = isNew ? ownerType === 'team' : checklist?.owner_type === 'team'
   const effectiveOwnerType = ownerType ?? checklist?.owner_type ?? 'personal'
@@ -137,6 +142,82 @@ export default function EditPage() {
 
     setSaving(false)
     navigate('/', { state: effectiveOwnerType === 'team' ? { tab: 'team', teamId: effectiveOwnerId } : { tab: 'personal' } })
+  }
+
+  const handleExcelDownload = () => {
+    downloadChecklistItems(title.trim(), localItems)
+  }
+
+  const handleExcelFile = async (file: File) => {
+    const { rows, errors } = await parseChecklistItems(file)
+    const diff = diffByLabel(rows, localItems, (incoming, existing) =>
+      incoming.itemType === existing.item_type
+      && (incoming.unit ?? null) === (existing.unit ?? null)
+      && (incoming.options ?? []).join(',') === (existing.options ?? []).join(',')
+      && incoming.hasNote === existing.has_note,
+    )
+    setExcelRows(rows)
+    setExcelPreview({ ...diff, errors })
+  }
+
+  // 항목명이 같으면 기존 행을 그대로 두고 속성만 고친다 (그 항목에 쌓인 기록이 유지된다)
+  const handleExcelApply = async () => {
+    if (!excelRows) return
+    setExcelApplying(true)
+
+    const existingByLabel = new Map(localItems.map((i) => [i.label, i]))
+    const incomingLabels = new Set(excelRows.map((r) => r.label))
+    const removed = localItems.filter((i) => !incomingLabels.has(i.label))
+
+    if (isNew) {
+      // 아직 저장 전이므로 로컬 상태만 맞춘다
+      setLocalItems(excelRows.map((r, idx) => {
+        const prev = existingByLabel.get(r.label)
+        return {
+          id: prev?.id ?? `temp-${Date.now()}-${idx}`,
+          checklist_id: '',
+          label: r.label,
+          sort_order: idx,
+          todo_id: prev?.todo_id ?? null,
+          item_type: r.itemType,
+          unit: r.unit,
+          options: r.options,
+          has_note: r.hasNote,
+          created_at: prev?.created_at ?? '',
+          updated_at: prev?.updated_at ?? '',
+        }
+      }))
+    } else {
+      const removedIds = removed.filter((i) => !i.id.startsWith('temp-')).map((i) => i.id)
+      if (removedIds.length > 0) {
+        await supabase.from('checklist_items').delete().in('id', removedIds)
+      }
+
+      const next: ChecklistItem[] = []
+      for (let idx = 0; idx < excelRows.length; idx++) {
+        const r = excelRows[idx]
+        const prev = existingByLabel.get(r.label)
+
+        if (prev && !prev.id.startsWith('temp-')) {
+          await supabase.from('checklist_items').update({
+            item_type: r.itemType, unit: r.unit, options: r.options,
+            has_note: r.hasNote, sort_order: idx,
+          }).eq('id', prev.id)
+          next.push({ ...prev, item_type: r.itemType, unit: r.unit, options: r.options, has_note: r.hasNote, sort_order: idx })
+        } else {
+          const { data } = await supabase.from('checklist_items').insert({
+            checklist_id: id!, label: r.label, sort_order: idx, todo_id: null,
+            item_type: r.itemType, unit: r.unit, options: r.options, has_note: r.hasNote,
+          }).select().single()
+          if (data) next.push(data)
+        }
+      }
+      setLocalItems(next)
+    }
+
+    setExcelApplying(false)
+    setExcelPreview(null)
+    setExcelRows(null)
   }
 
   const handleAddItem = async (label?: string, todoId?: string) => {
@@ -441,6 +522,16 @@ export default function EditPage() {
             )}
           </>
         )}
+
+        <ExcelItemsCard
+          itemLabel="항목"
+          preview={excelPreview}
+          applying={excelApplying}
+          onDownload={handleExcelDownload}
+          onSelectFile={handleExcelFile}
+          onApply={handleExcelApply}
+          onCancel={() => { setExcelPreview(null); setExcelRows(null) }}
+        />
 
         {/* 항목 목록 */}
         <div className="rounded-xl overflow-hidden" style={{ background: T.surface, border: `1px solid ${T.border}` }}>

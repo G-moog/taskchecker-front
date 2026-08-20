@@ -6,12 +6,19 @@ import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { SheetTargetPicker } from '../components/SheetTargetPicker'
+import { ExcelItemsCard, type ExcelPreview } from '../components/ExcelItemsCard'
+import { diffByLabel, downloadMeasurementFields, parseMeasurementFields, type MeasurementFieldRow } from '../lib/excelItems'
 import { T } from '../theme'
 import type { MeasurementField } from '../types/database'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
 type LocalField = MeasurementField & { isTemp?: boolean }
+
+/** 아직 DB에 없는 항목 */
+function isNewField(f: LocalField) {
+  return f.isTemp === true || f.id.startsWith('temp-')
+}
 
 export default function MeasurementEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -31,6 +38,8 @@ export default function MeasurementEditPage() {
   const [newUnit, setNewUnit] = useState('')
   const [sheetTargetId, setSheetTargetId] = useState<string | null>(null)
   const [sheetTabName, setSheetTabName] = useState('')
+  const [excelRows, setExcelRows] = useState<MeasurementFieldRow[] | null>(null)
+  const [excelPreview, setExcelPreview] = useState<ExcelPreview | null>(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!isNew)
 
@@ -110,6 +119,16 @@ export default function MeasurementEditPage() {
         .single()
       if (error || !data) { setSaving(false); return }
       formId = data.id
+      if (fields.length > 0) {
+        await supabase.from('measurement_fields').insert(
+          fields.map((f, idx) => ({
+            form_id: formId!,
+            label: f.label,
+            unit: f.unit,
+            sort_order: idx,
+          }))
+        )
+      }
     } else {
       await supabase.from('measurement_forms').update({
         title: title.trim(),
@@ -118,19 +137,34 @@ export default function MeasurementEditPage() {
         sheet_target_id: sheetTargetId,
         sheet_tab_name: sheetTabName.trim() || null,
       }).eq('id', id!)
-      // 기존 항목 전부 삭제 후 재삽입 (순서 변경 포함)
-      await supabase.from('measurement_fields').delete().eq('form_id', id!)
-    }
 
-    if (fields.length > 0) {
-      await supabase.from('measurement_fields').insert(
-        fields.map((f, idx) => ({
-          form_id: formId!,
-          label: f.label,
-          unit: f.unit,
-          sort_order: idx,
-        }))
-      )
+      // 항목을 전부 지우고 다시 넣으면 measurement_values.field_id가 끊어져
+      // 과거 기록을 못 읽게 된다. 남아 있는 항목은 id를 유지한 채 갱신한다.
+      const keptIds = new Set(fields.filter((f) => !isNewField(f)).map((f) => f.id))
+      const { data: current } = await supabase
+        .from('measurement_fields')
+        .select('id')
+        .eq('form_id', id!)
+      const removedIds = (current ?? [])
+        .map((c) => c.id)
+        .filter((currentId) => !keptIds.has(currentId))
+
+      if (removedIds.length > 0) {
+        await supabase.from('measurement_fields').delete().in('id', removedIds)
+      }
+
+      for (let idx = 0; idx < fields.length; idx++) {
+        const field = fields[idx]
+        if (isNewField(field)) {
+          await supabase.from('measurement_fields').insert({
+            form_id: id!, label: field.label, unit: field.unit, sort_order: idx,
+          })
+        } else {
+          await supabase.from('measurement_fields').update({
+            label: field.label, unit: field.unit, sort_order: idx,
+          }).eq('id', field.id)
+        }
+      }
     }
 
     setSaving(false)
@@ -139,6 +173,41 @@ export default function MeasurementEditPage() {
         ? { tab: 'team', teamId: effectiveOwnerId, measurementTab: true }
         : { tab: 'personal', measurementTab: true },
     })
+  }
+
+  const handleExcelDownload = () => {
+    downloadMeasurementFields(title.trim(), fields)
+  }
+
+  const handleExcelFile = async (file: File) => {
+    const { rows, errors } = await parseMeasurementFields(file)
+    const diff = diffByLabel(rows, fields, (incoming, existing) =>
+      (incoming.unit ?? null) === (existing.unit ?? null),
+    )
+    setExcelRows(rows)
+    setExcelPreview({ ...diff, errors })
+  }
+
+  // 항목명이 같으면 기존 id를 유지해 과거 기록과의 연결을 지킨다.
+  // 실제 반영은 저장 버튼을 눌러야 일어난다.
+  const handleExcelApply = () => {
+    if (!excelRows) return
+    const byLabel = new Map(fields.map((f) => [f.label, f]))
+    setFields(excelRows.map((r, idx) => {
+      const prev = byLabel.get(r.label)
+      return prev
+        ? { ...prev, unit: r.unit, sort_order: idx }
+        : {
+            id: `temp-${Date.now()}-${idx}`,
+            form_id: id ?? '',
+            label: r.label,
+            unit: r.unit,
+            sort_order: idx,
+            isTemp: true,
+          }
+    }))
+    setExcelPreview(null)
+    setExcelRows(null)
   }
 
   const goBack = () =>
@@ -212,6 +281,16 @@ export default function MeasurementEditPage() {
             }}
           />
         )}
+
+        <ExcelItemsCard
+          itemLabel="측정 항목"
+          preview={excelPreview}
+          applying={false}
+          onDownload={handleExcelDownload}
+          onSelectFile={handleExcelFile}
+          onApply={handleExcelApply}
+          onCancel={() => { setExcelPreview(null); setExcelRows(null) }}
+        />
 
         {/* 측정 항목 */}
         <div className="rounded-xl overflow-hidden" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
