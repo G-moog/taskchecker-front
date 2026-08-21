@@ -1,11 +1,19 @@
-import { useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useChecklistDetail } from '../hooks/useChecklistDetail'
+import { useChecklistSnooze } from '../hooks/useChecklistSnooze'
+import { useSettings } from '../hooks/useSettings'
 import { syncToSheet } from '../lib/sheetSync'
 import { todayString } from '../lib/date'
 import { T } from '../theme'
 import type { ChecklistItem } from '../types/database'
+
+function minuteLabel(m: number) {
+  if (m < 60) return `${m}분`
+  if (m === 60) return '1시간'
+  return m % 60 ? `${Math.floor(m / 60)}시간 ${m % 60}분` : `${Math.floor(m / 60)}시간`
+}
 
 /** 측정 항목의 최종 저장 시각 — 저장할 때마다 checked_at이 덮어써진다 */
 function formatSavedAt(iso: string) {
@@ -19,6 +27,12 @@ export default function CheckPage() {
   const { user } = useAuth()
   const { checklist, items, statuses, loading, toggleItem, saveMeasureValue, clearMeasureValue } = useChecklistDetail(id)
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { settings } = useSettings()
+  const today = todayString()
+  const { snooze, snoozeFor, muteToday, clearSnooze } = useChecklistSnooze(id, user?.id, today)
+  const [showSnooze, setShowSnooze] = useState(false)
+  const [snoozing, setSnoozing] = useState(false)
   const [showModal, setShowModal] = useState(false)
   // 측정 항목별 입력 중인 값 (itemId → value)
   const [measureInputs, setMeasureInputs] = useState<Record<string, string>>({})
@@ -29,10 +43,18 @@ export default function CheckPage() {
   const [cancelTarget, setCancelTarget] = useState<ChecklistItem | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // 알림을 눌러 들어온 경우 미루기 화면을 띄운다.
+  // 새로고침해도 다시 뜨지 않도록 파라미터는 지운다.
+  useEffect(() => {
+    if (searchParams.get('notify') !== '1') return
+    setShowSnooze(true)
+    const next = new URLSearchParams(searchParams)
+    next.delete('notify')
+    setSearchParams(next, { replace: true })
+  }, [searchParams, setSearchParams])
+
   if (loading) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>불러오는 중...</div>
   if (!checklist) return <div className="flex items-center justify-center min-h-screen text-sm" style={{ background: T.bg, color: T.muted }}>체크리스트를 찾을 수 없습니다</div>
-
-  const today = todayString()
 
   const getStatus = (itemId: string) => {
     if (checklist.repeat_type === 'once') return statuses.find((s) => s.item_id === itemId && s.is_checked)
@@ -90,6 +112,13 @@ export default function CheckPage() {
     setMeasureInputs((prev) => ({ ...prev, [itemId]: '' }))
     setNoteInputs((prev) => ({ ...prev, [itemId]: '' }))
     setCancelTarget(null)
+  }
+
+  const runSnooze = async (action: () => Promise<{ error: unknown }>, close = true) => {
+    setSnoozing(true)
+    await action()
+    setSnoozing(false)
+    if (close) setShowSnooze(false)
   }
 
   const handleMeasureSave = async (itemId: string) => {
@@ -270,14 +299,83 @@ export default function CheckPage() {
         })}
       </div>
 
-      {/* OK 버튼 */}
-      <div className="fixed bottom-6 left-0 right-0 flex justify-center px-4">
+      {/* 하단 버튼 */}
+      <div className="fixed bottom-6 left-0 right-0 flex justify-center items-center gap-3 px-4">
+        {checklist.notify_time && (
+          <button onClick={() => setShowSnooze(true)}
+            className="rounded-2xl px-5 py-4 text-sm font-medium shadow-lg"
+            style={{
+              background: snooze ? T.accentDim : T.surface,
+              color: snooze ? T.accent : T.muted,
+              border: `1px solid ${snooze ? T.accentBorder : T.border}`,
+            }}>
+            {snooze ? '알림 미뤄둠' : '나중에 알림'}
+          </button>
+        )}
         <button onClick={() => setShowModal(true)}
           className="rounded-2xl px-10 py-4 text-base font-semibold shadow-lg transition-colors"
           style={{ background: T.accent, color: '#0d0d12' }}>
           OK
         </button>
       </div>
+
+      {/* 알림 미루기 */}
+      {showSnooze && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setShowSnooze(false)}>
+          <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} />
+          <div className="relative rounded-t-2xl px-4 pt-4 pb-8"
+            style={{ background: T.surface, maxHeight: '70vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: T.border }} />
+
+            <p className="text-sm font-semibold mb-1" style={{ color: T.text }}>{checklist.title}</p>
+            <p className="text-xs mb-4" style={{ color: T.muted }}>
+              {snooze
+                ? snooze.remind_at
+                  ? `${formatSavedAt(snooze.remind_at)}에 다시 알립니다.`
+                  : '오늘은 더 알리지 않습니다.'
+                : '지금 하기 어려우면 알림을 미룰 수 있습니다. 나에게만 적용됩니다.'}
+            </p>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {settings.snoozeTimes.map((m) => (
+                <button key={m} disabled={snoozing}
+                  onClick={() => runSnooze(() => snoozeFor(m))}
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium"
+                  style={{
+                    background: T.accentDim, color: T.accent,
+                    border: `1px solid ${T.accentBorder}`, opacity: snoozing ? 0.4 : 1,
+                  }}>
+                  {minuteLabel(m)} 후
+                </button>
+              ))}
+              {settings.snoozeTimes.length === 0 && (
+                <p className="text-xs" style={{ color: T.muted }}>설정에서 미루기 시간을 추가해주세요.</p>
+              )}
+            </div>
+
+            <button disabled={snoozing} onClick={() => runSnooze(() => muteToday())}
+              className="w-full py-2.5 rounded-lg text-sm font-medium mb-2"
+              style={{ background: T.dangerDim, color: T.danger, border: `1px solid ${T.dangerBorder}`, opacity: snoozing ? 0.4 : 1 }}>
+              오늘은 그만
+            </button>
+
+            {snooze && (
+              <button disabled={snoozing} onClick={() => runSnooze(() => clearSnooze(), false)}
+                className="w-full py-2.5 rounded-lg text-sm mb-2"
+                style={{ border: `1px solid ${T.border}`, color: T.muted, opacity: snoozing ? 0.4 : 1 }}>
+                미루기 취소 (정시 알림 다시 받기)
+              </button>
+            )}
+
+            <button onClick={() => setShowSnooze(false)}
+              className="w-full py-2.5 rounded-lg text-sm"
+              style={{ border: `1px solid ${T.border}`, color: T.muted }}>
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 측정값 입력 취소 확인 */}
       {cancelTarget && (

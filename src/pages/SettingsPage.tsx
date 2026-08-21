@@ -147,6 +147,21 @@ export default function SettingsPage() {
           />
         </div>
 
+        {/* 알림 미루기 */}
+        <div className="rounded-xl p-4" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
+          <div className="flex items-center gap-2 mb-1">
+            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: T.accent }}>
+              <circle cx="12" cy="12" r="10" /><path strokeLinecap="round" d="M12 6v6l4 2" />
+            </svg>
+            <span className="text-sm font-semibold" style={{ color: T.text }}>알림 미루기 — 시간 버튼</span>
+          </div>
+          <p className="text-xs mb-4" style={{ color: T.muted }}>체크리스트 알림을 미룰 때 표시될 "N분 후" 버튼을 설정합니다.</p>
+          <MinutePresetEditor
+            values={settings.snoozeTimes}
+            onChange={(next) => update({ snoozeTimes: next })}
+          />
+        </div>
+
       </div>
     </div>
   )
