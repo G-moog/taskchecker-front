@@ -19,6 +19,15 @@ export interface TeamMember {
   joined_at: string
 }
 
+/** auth.users의 구글 프로필을 복사해 둔 것 — 화면에 이름을 보여주는 용도 */
+export interface Profile {
+  id: string
+  display_name: string | null
+  email: string | null
+  avatar_url: string | null
+  updated_at: string
+}
+
 export interface TeamInviteCode {
   id: string
   team_id: string
@@ -188,6 +197,12 @@ export type Database = {
         Row: TeamMember
         Insert: Omit<TeamMember, 'id' | 'joined_at'>
         Update: Partial<Omit<TeamMember, 'id'>>
+        Relationships: []
+      }
+      profiles: {
+        Row: Profile
+        Insert: Omit<Profile, 'updated_at'>
+        Update: Partial<Omit<Profile, 'id'>>
         Relationships: []
       }
       team_invite_codes: {

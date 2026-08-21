@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useTeams } from '../hooks/useTeams'
+import { useTeamMembers } from '../hooks/useTeamMembers'
+import { profileLabel } from '../lib/profile'
 import { T } from '../theme'
-import type { TeamMember, TeamInviteCode } from '../types/database'
+import type { TeamInviteCode } from '../types/database'
 
 export default function TeamSettingsPage() {
   const { teamId } = useParams<{ teamId: string }>()
@@ -12,7 +14,7 @@ export default function TeamSettingsPage() {
   const { teams } = useTeams(user?.id)
   const navigate = useNavigate()
 
-  const [members, setMembers] = useState<TeamMember[]>([])
+  const { members } = useTeamMembers(teamId)
   const [activeCode, setActiveCode] = useState<TeamInviteCode | null>(null)
   const [loading, setLoading] = useState(true)
   const [codeLoading, setCodeLoading] = useState(false)
@@ -25,11 +27,9 @@ export default function TeamSettingsPage() {
     if (!teamId) return
     const run = async () => {
       setLoading(true)
-      const [membersRes, codesRes] = await Promise.all([
-        supabase.from('team_members').select('*').eq('team_id', teamId),
-        supabase.from('team_invite_codes').select('*').eq('team_id', teamId).is('revoked_at', null).order('created_at', { ascending: false }).limit(1),
-      ])
-      if (membersRes.data) setMembers(membersRes.data)
+      const codesRes = await supabase
+        .from('team_invite_codes').select('*').eq('team_id', teamId)
+        .is('revoked_at', null).order('created_at', { ascending: false }).limit(1)
       if (codesRes.data?.[0]) {
         const code = codesRes.data[0]
         if (!code.expires_at || new Date(code.expires_at) > new Date()) setActiveCode(code)
@@ -122,7 +122,7 @@ export default function TeamSettingsPage() {
           </div>
           {members.map((m) => (
             <div key={m.id} className="flex items-center justify-between px-4 py-3" style={{ borderBottom: `1px solid ${T.border}` }}>
-              <span className="text-sm" style={{ color: T.text }}>{m.user_id === user?.id ? '나' : m.user_id.slice(0, 8) + '...'}</span>
+              <span className="text-sm" style={{ color: T.text }}>{profileLabel(m.profile, m.user_id, user?.id)}</span>
               <span className="text-xs px-2 py-0.5 rounded-full"
                 style={{
                   background: m.role === 'admin' ? T.accentDim : T.surface2,

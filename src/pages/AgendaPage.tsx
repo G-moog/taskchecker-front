@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useAgendaDetail } from '../hooks/useAgendaDetail'
 import { DECISION_MODE_LABEL, RESPONSE_TYPE_LABEL, STANCE_LABEL } from '../lib/meeting'
+import { useProfiles } from '../hooks/useProfiles'
+import { profileLabel } from '../lib/profile'
 import { T } from '../theme'
-import type { AgendaStance, MeetingResponse } from '../types/database'
+import type { AgendaStance, MeetingResponse, Profile } from '../types/database'
 
 const STANCE_COLOR: Record<AgendaStance, string> = {
   for: T.success,
@@ -12,10 +14,6 @@ const STANCE_COLOR: Record<AgendaStance, string> = {
   abstain: T.muted,
 }
 
-/** profiles 테이블이 없어 UUID 앞자리로 표시한다 (기존 화면들과 동일). */
-function authorLabel(userId: string, myUserId: string | undefined) {
-  return userId === myUserId ? '나' : userId.slice(0, 6)
-}
 
 export default function AgendaPage() {
   const { id } = useParams<{ id: string }>()
@@ -23,6 +21,7 @@ export default function AgendaPage() {
   const navigate = useNavigate()
   const { agenda, responses, loading, submitResponse, deleteResponse } = useAgendaDetail(id)
 
+  const profiles = useProfiles([agenda?.created_by, ...responses.map((r) => r.user_id)])
   const myResponse = responses.find((r) => r.user_id === user?.id) ?? null
 
   const [stance, setStance] = useState<AgendaStance | null>(null)
@@ -100,7 +99,7 @@ export default function AgendaPage() {
             </span>
           </div>
           <p className="text-xs mt-3" style={{ color: T.muted }}>
-            {authorLabel(agenda.created_by, user?.id)} · {new Date(agenda.created_at).toLocaleDateString('ko-KR')}
+            {profileLabel(profiles[agenda.created_by], agenda.created_by, user?.id)} · {new Date(agenda.created_at).toLocaleDateString('ko-KR')}
           </p>
         </div>
 
@@ -192,7 +191,7 @@ export default function AgendaPage() {
           ) : (
             <div className="space-y-2">
               {responses.map((r) => (
-                <ResponseCard key={r.id} response={r} myUserId={user?.id} />
+                <ResponseCard key={r.id} response={r} myUserId={user?.id} profiles={profiles} />
               ))}
             </div>
           )}
@@ -202,7 +201,11 @@ export default function AgendaPage() {
   )
 }
 
-function ResponseCard({ response, myUserId }: { response: MeetingResponse; myUserId: string | undefined }) {
+function ResponseCard({ response, myUserId, profiles }: {
+  response: MeetingResponse
+  myUserId: string | undefined
+  profiles: Record<string, Profile>
+}) {
   const isMine = response.user_id === myUserId
 
   return (
@@ -213,7 +216,7 @@ function ResponseCard({ response, myUserId }: { response: MeetingResponse; myUse
       }}>
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs font-medium" style={{ color: isMine ? T.accent : T.text }}>
-          {authorLabel(response.user_id, myUserId)}
+          {profileLabel(profiles[response.user_id], response.user_id, myUserId)}
         </span>
         {response.stance && (
           <span className="text-xs px-2 py-0.5 rounded-full"

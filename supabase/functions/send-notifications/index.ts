@@ -98,15 +98,34 @@ Deno.serve(async () => {
 
     if (!targets.length) return new Response(JSON.stringify({ sent: 0, time: hhmm }), { status: 200 })
 
-    const userIds = new Set<string>()
+    // 체크리스트마다 수신자를 따로 구한다.
+    // 예전에는 이번 실행에 모인 토큰 전체로 보내서, 같은 시각에 걸린
+    // 다른 팀(또는 개인) 체크리스트의 알림까지 서로에게 갔다.
+    const recipientsByChecklist = new Map<string, string[]>()
+
     for (const cl of targets) {
       if (cl.owner_type === 'personal') {
-        userIds.add(cl.owner_id)
-      } else {
-        const { data: members } = await supabase
-          .from('team_members').select('user_id').eq('team_id', cl.owner_id)
-        members?.forEach((m) => userIds.add(m.user_id))
+        recipientsByChecklist.set(cl.id, [cl.owner_id])
+        continue
       }
+
+      // 알림 대상이 지정돼 있으면 그 사람들만, 비어 있으면 팀원 전체
+      const { data: notifyTargets } = await supabase
+        .from('checklist_notify_targets').select('user_id').eq('checklist_id', cl.id)
+
+      if (notifyTargets?.length) {
+        recipientsByChecklist.set(cl.id, notifyTargets.map((t) => t.user_id))
+        continue
+      }
+
+      const { data: members } = await supabase
+        .from('team_members').select('user_id').eq('team_id', cl.owner_id)
+      recipientsByChecklist.set(cl.id, (members ?? []).map((m) => m.user_id))
+    }
+
+    const userIds = new Set<string>()
+    for (const ids of recipientsByChecklist.values()) {
+      for (const userId of ids) userIds.add(userId)
     }
 
     const { data: tokenRows } = await supabase
@@ -118,9 +137,7 @@ Deno.serve(async () => {
     let sent = 0
 
     for (const cl of targets) {
-      const recipientIds = cl.owner_type === 'personal'
-        ? [cl.owner_id]
-        : tokenRows.map((t) => t.user_id)
+      const recipientIds = recipientsByChecklist.get(cl.id) ?? []
 
       const tokens = tokenRows
         .filter((t) => recipientIds.includes(t.user_id))

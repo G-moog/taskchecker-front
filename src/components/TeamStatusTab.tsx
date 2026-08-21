@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTeamCalendarData, type TeamDayChecklist } from '../hooks/useTeamCalendarData'
+import { useProfiles } from '../hooks/useProfiles'
+import { profileLabel } from '../lib/profile'
 import { T } from '../theme'
 import { useAuth } from '../hooks/useAuth'
+import type { Profile } from '../types/database'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -17,11 +20,13 @@ function DayDetailSheet({
   dateStr,
   checklists,
   myUserId,
+  profiles,
   onClose,
 }: {
   dateStr: string
   checklists: TeamDayChecklist[]
   myUserId: string
+  profiles: Record<string, Profile>
   onClose: () => void
 }) {
   return (
@@ -68,7 +73,7 @@ function DayDetailSheet({
                   </div>
                   {item.isChecked && item.checkedBy && (
                     <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: T.surface, color: T.accent, border: `1px solid ${T.accentBorder}` }}>
-                      {item.checkedBy === myUserId ? '나' : item.checkedBy.slice(0, 6)}
+                      {profileLabel(profiles[item.checkedBy], item.checkedBy, myUserId)}
                     </span>
                   )}
                 </div>
@@ -92,6 +97,17 @@ export function TeamStatusTab({ teamId }: { teamId: string }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   const { data, loading } = useTeamCalendarData(teamId, year, month)
+
+  const checkedByIds = useMemo(() => {
+    const ids: string[] = []
+    for (const day of Object.values(data)) {
+      for (const cl of day.checklists) {
+        for (const item of cl.items) if (item.checkedBy) ids.push(item.checkedBy)
+      }
+    }
+    return ids
+  }, [data])
+  const profiles = useProfiles(checkedByIds)
 
   const firstDayOfWeek = new Date(year, month - 1, 1).getDay()
   const totalDays = new Date(year, month, 0).getDate()
@@ -187,6 +203,7 @@ export function TeamStatusTab({ teamId }: { teamId: string }) {
             dateStr={selectedDate}
             checklists={data[selectedDate].checklists}
             myUserId={user.id}
+            profiles={profiles}
             onClose={() => setSelectedDate(null)}
           />
         </>

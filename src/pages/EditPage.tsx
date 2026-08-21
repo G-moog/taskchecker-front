@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { useChecklistDetail } from '../hooks/useChecklistDetail'
 import { SheetTargetPicker } from '../components/SheetTargetPicker'
+import { NotifyTargetPicker } from '../components/NotifyTargetPicker'
 import { ExcelItemsCard, type ExcelPreview } from '../components/ExcelItemsCard'
 import { diffByLabel, downloadChecklistItems, parseChecklistItems, type ChecklistItemRow } from '../lib/excelItems'
 import { T } from '../theme'
@@ -58,6 +59,9 @@ export default function EditPage() {
   const [excelRows, setExcelRows] = useState<ChecklistItemRow[] | null>(null)
   const [excelPreview, setExcelPreview] = useState<ExcelPreview | null>(null)
   const [excelApplying, setExcelApplying] = useState(false)
+  // 비어 있으면 전체 팀원
+  const [notifyUserIds, setNotifyUserIds] = useState<string[]>([])
+  const [notifyLoaded, setNotifyLoaded] = useState(false)
 
   const isTeam = isNew ? ownerType === 'team' : checklist?.owner_type === 'team'
   const effectiveOwnerType = ownerType ?? checklist?.owner_type ?? 'personal'
@@ -77,6 +81,19 @@ export default function EditPage() {
 
   useEffect(() => { setLocalItems(items) }, [items])
 
+  useEffect(() => {
+    if (isNew || !id) { setNotifyLoaded(true); return }
+    const load = async () => {
+      const { data } = await supabase
+        .from('checklist_notify_targets')
+        .select('user_id')
+        .eq('checklist_id', id)
+      setNotifyUserIds((data ?? []).map((row) => row.user_id))
+      setNotifyLoaded(true)
+    }
+    load()
+  }, [id, isNew])
+
   const sensors = useSensors(useSensor(PointerSensor))
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -87,6 +104,21 @@ export default function EditPage() {
       const reordered = arrayMove(localItems, oldIdx, newIdx)
       setLocalItems(reordered)
       if (!isNew) updateSortOrder(reordered.map((i) => i.id))
+    }
+  }
+
+  // 알림 대상은 지정된 사람만 행으로 남긴다. 행이 없으면 전체 팀원으로 해석된다.
+  const syncNotifyTargets = async (checklistId: string) => {
+    if (!isTeam || !user) return
+    await supabase.from('checklist_notify_targets').delete().eq('checklist_id', checklistId)
+    if (notifyUserIds.length > 0) {
+      await supabase.from('checklist_notify_targets').insert(
+        notifyUserIds.map((userId) => ({
+          checklist_id: checklistId,
+          user_id: userId,
+          added_by: user.id,
+        })),
+      )
     }
   }
 
@@ -128,6 +160,8 @@ export default function EditPage() {
           }))
         )
       }
+
+      await syncNotifyTargets(cl.id)
     } else {
       await supabase.from('checklists').update({
         title: title.trim(),
@@ -138,6 +172,8 @@ export default function EditPage() {
         sheet_target_id: sheetTargetId,
         sheet_tab_name: sheetTabName.trim() || null,
       }).eq('id', id!)
+
+      await syncNotifyTargets(id!)
     }
 
     setSaving(false)
@@ -493,11 +529,12 @@ export default function EditPage() {
           )}
         </div>
 
-        {isTeam && (
-          <div className="rounded-xl px-4 py-3" style={{ background: T.surface, border: `1px solid ${T.border}` }}>
-            <label className="block text-xs mb-1" style={{ color: T.muted }}>알림 대상</label>
-            <p className="text-sm" style={{ color: T.muted }}>전체 팀원 (기본값)</p>
-          </div>
+        {isTeam && effectiveOwnerId && notifyLoaded && (
+          <NotifyTargetPicker
+            teamId={effectiveOwnerId}
+            selectedUserIds={notifyUserIds}
+            onChange={setNotifyUserIds}
+          />
         )}
 
         {/* 구글 시트 연동 */}
